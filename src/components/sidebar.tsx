@@ -1,5 +1,5 @@
-import { generateId } from '@/lib/uuid';
 "use client";
+import { generateId } from "@/lib/uuid";
 
 import { useStore } from "@/lib/store";
 import { allPayloads } from "@/lib/attacks";

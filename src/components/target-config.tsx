@@ -1,5 +1,5 @@
-import { generateId } from '@/lib/uuid';
 "use client";
+import { generateId } from "@/lib/uuid";
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
