@@ -46,3 +46,12 @@ PHASE2.md
 
 # claude code
 .claude/
+
+# Start/stop scripts (local dev)
+start.sh
+stop.sh
+start.bat
+stop.bat
+start.ps1
+stop.ps1
+.server.pid

@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/uuid';
 "use client";
 
 import { useState, useCallback, useReducer } from "react";
@@ -692,14 +693,14 @@ function CustomChainEditor({
   const [category, setCategory] = useState<AttackCategory>("extraction");
   const [severity, setSeverity] = useState<Severity>("medium");
   const [steps, setSteps] = useState<DraftStep[]>([
-    { id: crypto.randomUUID(), name: "Step 1", prompt: "", systemPrompt: "" },
+    { id: generateId(), name: "Step 1", prompt: "", systemPrompt: "" },
   ]);
 
   const addStep = () => {
     setSteps((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: generateId(),
         name: `Step ${prev.length + 1}`,
         prompt: "",
         systemPrompt: "",
@@ -737,7 +738,7 @@ function CustomChainEditor({
     if (!canSave) return;
 
     const chain: AttackChain = {
-      id: `custom-${crypto.randomUUID().slice(0, 8)}`,
+      id: `custom-${generateId().slice(0, 8)}`,
       name: name.trim(),
       description: description.trim() || "Custom attack chain",
       category,

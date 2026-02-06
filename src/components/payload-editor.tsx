@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/uuid';
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
@@ -534,7 +535,7 @@ export function PayloadEditor() {
     setRunningPayload(true);
     setIsRunning(true);
 
-    const runId = crypto.randomUUID();
+    const runId = generateId();
     const run: AttackRun = {
       id: runId,
       targetId: target.id,

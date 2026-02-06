@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/uuid';
 "use client";
 
 import { useStore } from "@/lib/store";
@@ -54,7 +55,7 @@ export function Sidebar() {
     const target = targets.find((t) => t.id === activeTargetId);
     if (!target) return;
 
-    const runId = crypto.randomUUID();
+    const runId = generateId();
     const run: AttackRun = {
       id: runId,
       targetId: target.id,

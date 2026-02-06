@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/uuid';
 "use client";
 
 import { useState } from "react";
@@ -84,7 +85,7 @@ export function TargetConfig() {
       return;
 
     const target: TargetConfig = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       name: name.trim(),
       endpoint: endpoint.trim(),
       apiKey: apiKey.trim(),
