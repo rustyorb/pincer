@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# internal planning docs
+SPEC.md
+PHASE2.md
+
+# claude code
+.claude/
