@@ -1,8 +1,8 @@
 "use client";
+import { useRef } from "react";
 import { generateId } from "@/lib/uuid";
 
 import { useStore } from "@/lib/store";
-import { allPayloads } from "@/lib/attacks";
 import type { AttackCategory, AttackRun } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   Shield,
   Target,
   Play,
+  Square,
   FileText,
   Loader2,
   Plus,
@@ -22,6 +23,11 @@ import {
   Link2,
   Database,
   Edit3,
+  GitCompareArrows,
+  Brain,
+  Grid3X3,
+  GitBranch,
+  Calculator,
 } from "lucide-react";
 
 const ATTACK_CATEGORIES: AttackCategory[] = [
@@ -45,15 +51,28 @@ export function Sidebar() {
     addRun,
     addResult,
     completeRun,
+    cancelRun,
     setActiveRun,
   } = useStore();
+
+  const abortRef = useRef<AbortController | null>(null);
 
   const canRun =
     activeTargetId !== null && selectedCategories.length > 0 && !isRunning;
 
+  const stopAttacks = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
+
   const runAttacks = async () => {
     const target = targets.find((t) => t.id === activeTargetId);
     if (!target) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const runId = generateId();
     const run: AttackRun = {
@@ -71,6 +90,8 @@ export function Sidebar() {
     setIsRunning(true);
     setView("results");
 
+    let wasCancelled = false;
+
     try {
       const res = await fetch("/api/attack", {
         method: "POST",
@@ -82,6 +103,7 @@ export function Sidebar() {
           provider: target.provider,
           categories: selectedCategories,
         }),
+        signal: controller.signal,
       });
 
       const reader = res.body?.getReader();
@@ -106,10 +128,19 @@ export function Sidebar() {
         }
       }
     } catch (err) {
-      console.error("Attack run failed:", err);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        wasCancelled = true;
+      } else {
+        console.error("Attack run failed:", err);
+      }
     } finally {
-      completeRun(runId);
+      if (wasCancelled) {
+        cancelRun(runId);
+      } else {
+        completeRun(runId);
+      }
       setIsRunning(false);
+      abortRef.current = null;
     }
   };
 
@@ -127,7 +158,7 @@ export function Sidebar() {
 
       <Separator />
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 p-4">
           {/* TARGETS Section */}
           <div className="mb-4">
@@ -277,29 +308,100 @@ export function Sidebar() {
               Session
             </button>
           </div>
+
+          <Separator />
+
+          {/* Advanced Tools */}
+          <div className="my-4 flex flex-col gap-1">
+            <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Advanced
+            </h2>
+
+            <button
+              onClick={() => setView("comparison")}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                view === "comparison"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground"
+              }`}
+            >
+              <GitCompareArrows className="h-4 w-4" />
+              Compare
+            </button>
+
+            <button
+              onClick={() => setView("adaptive")}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                view === "adaptive"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground"
+              }`}
+            >
+              <Brain className="h-4 w-4" />
+              Adaptive
+            </button>
+
+            <button
+              onClick={() => setView("heatmap")}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                view === "heatmap"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground"
+              }`}
+            >
+              <Grid3X3 className="h-4 w-4" />
+              Heatmap
+            </button>
+
+            <button
+              onClick={() => setView("regression")}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                view === "regression"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground"
+              }`}
+            >
+              <GitBranch className="h-4 w-4" />
+              Regression
+            </button>
+
+            <button
+              onClick={() => setView("scoring")}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                view === "scoring"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground"
+              }`}
+            >
+              <Calculator className="h-4 w-4" />
+              Scoring
+            </button>
+          </div>
         </div>
       </ScrollArea>
 
-      {/* RUN Button */}
-      <div className="p-4">
-        <Button
-          className="w-full gap-2 bg-redpincer font-semibold text-redpincer-foreground hover:bg-redpincer/90 disabled:opacity-40"
-          size="lg"
-          disabled={!canRun}
-          onClick={runAttacks}
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4" />
-              RUN ATTACK
-            </>
-          )}
-        </Button>
+      {/* RUN / STOP Buttons */}
+      <div className="shrink-0 border-t border-border p-4 space-y-2">
+        {isRunning ? (
+          <Button
+            className="w-full gap-2 bg-destructive font-semibold text-destructive-foreground hover:bg-destructive/90"
+            size="lg"
+            onClick={stopAttacks}
+          >
+            <Square className="h-4 w-4" />
+            STOP
+          </Button>
+        ) : (
+          <Button
+            className="w-full gap-2 bg-redpincer font-semibold text-redpincer-foreground hover:bg-redpincer/90 disabled:opacity-40"
+            size="lg"
+            disabled={!canRun}
+            onClick={runAttacks}
+          >
+            <Play className="h-4 w-4" />
+            RUN ATTACK
+          </Button>
+        )}
       </div>
     </aside>
   );

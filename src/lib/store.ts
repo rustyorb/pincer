@@ -7,7 +7,7 @@ import type {
   AttackResult,
 } from "./types";
 
-type ViewName = "config" | "attacks" | "results" | "reports" | "chains" | "session" | "editor";
+type ViewName = "config" | "attacks" | "results" | "reports" | "chains" | "session" | "editor" | "comparison" | "adaptive" | "heatmap" | "regression" | "scoring";
 
 interface AppState {
   // Targets
@@ -29,6 +29,7 @@ interface AppState {
   addRun: (run: AttackRun) => void;
   addResult: (runId: string, result: AttackResult) => void;
   completeRun: (runId: string) => void;
+  cancelRun: (runId: string) => void;
   setActiveRun: (id: string | null) => void;
 
   // UI state (not persisted)
@@ -85,6 +86,14 @@ export const useStore = create<AppState>()(
           runs: state.runs.map((r) =>
             r.id === runId
               ? { ...r, status: "completed" as const, endTime: Date.now() }
+              : r
+          ),
+        })),
+      cancelRun: (runId) =>
+        set((state) => ({
+          runs: state.runs.map((r) =>
+            r.id === runId
+              ? { ...r, status: "cancelled" as const, endTime: Date.now() }
               : r
           ),
         })),

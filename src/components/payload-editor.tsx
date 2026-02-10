@@ -61,6 +61,7 @@ import {
   Upload,
   Check,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -358,6 +359,9 @@ export function PayloadEditor() {
   // Running state for single-payload runs
   const [runningPayload, setRunningPayload] = useState(false);
 
+  // AI generation state
+  const [generating, setGenerating] = useState(false);
+
   // Persist custom payloads to localStorage
   const updateCustomPayloads = useCallback(
     (updater: (prev: AttackPayload[]) => AttackPayload[]) => {
@@ -510,6 +514,57 @@ export function PayloadEditor() {
     };
     updateCustomPayloads((prev) => [newPayload, ...prev]);
     toast.success(`Variant saved as custom payload`);
+  };
+
+  // ── Generate with AI ────────────────────────────────────────────────────
+
+  const generateWithAI = async () => {
+    const target = targets.find((t) => t.id === activeTargetId);
+    if (!target) {
+      toast.error("No active target configured — needed for AI generation");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/generate-payload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: target.endpoint,
+          apiKey: target.apiKey,
+          model: target.model,
+          provider: target.provider,
+          category: form.category,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        toast.error(data.error || "Failed to generate payload");
+        return;
+      }
+
+      const generated = data.payload;
+      setForm((f) => ({
+        ...f,
+        name: generated.name || f.name,
+        description: generated.description || f.description,
+        severity: generated.severity || f.severity,
+        prompt: generated.prompt || f.prompt,
+        systemPrompt: generated.systemPrompt || f.systemPrompt,
+        tags: generated.tags?.length ? generated.tags : f.tags,
+      }));
+      setEditingId(null);
+      if (generated.systemPrompt) setSystemPromptOpen(true);
+      toast.success("Payload generated with AI");
+    } catch (err) {
+      console.error("AI generation failed:", err);
+      toast.error("AI generation failed");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   // ── Run selected payload ────────────────────────────────────────────────
@@ -936,6 +991,20 @@ export function PayloadEditor() {
                     <Play className="h-4 w-4" />
                   )}
                   Run Selected
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={generateWithAI}
+                  disabled={!activeTargetId || generating}
+                  className="gap-2 border-lobster/30 text-lobster hover:bg-lobster/10"
+                >
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {generating ? "Generating..." : "Generate with AI"}
                 </Button>
 
                 <Button variant="ghost" onClick={clearForm} className="gap-2">
