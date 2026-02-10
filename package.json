@@ -1,6 +1,22 @@
 {
   "name": "redpincer",
-  "version": "0.1.0",
+  "version": "0.3.0",
+  "description": "AI/LLM Red Team Suite — automated red team assessments with 160+ attack payloads, heuristic analysis, and exportable reports",
+  "author": "rustyorb",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rustyorb/pincer.git"
+  },
+  "keywords": [
+    "ai-security",
+    "red-team",
+    "llm",
+    "prompt-injection",
+    "jailbreak",
+    "guardrail-bypass",
+    "security-testing"
+  ],
   "private": true,
   "scripts": {
     "dev": "next dev",
