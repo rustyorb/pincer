@@ -16,9 +16,13 @@ interface AttackRequestBody {
   provider: TargetConfig["provider"];
   categories?: AttackCategory[];
   payloadIds?: string[];
+  rawPayloads?: AttackPayload[];
 }
 
 function resolvePayloads(body: AttackRequestBody): AttackPayload[] {
+  if (body.rawPayloads?.length) {
+    return body.rawPayloads;
+  }
   if (body.payloadIds?.length) {
     return allPayloads.filter((p) => body.payloadIds!.includes(p.id));
   }

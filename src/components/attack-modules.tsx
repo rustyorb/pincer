@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useStore } from "@/lib/store";
+import { generateId } from "@/lib/uuid";
 import { allPayloads, getPayloadsByCategory } from "@/lib/attacks";
-import type { AttackCategory, Severity, ModelTarget } from "@/lib/types";
+import type { AttackCategory, Severity, ModelTarget, AttackPayload, AttackRun } from "@/lib/types";
 import { CATEGORY_LABELS, MODEL_TARGET_LABELS } from "@/lib/types";
 import {
   Card,
@@ -12,6 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -19,6 +23,9 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
+  Puzzle,
+  Play,
+  Loader2,
 } from "lucide-react";
 
 const CATEGORIES: AttackCategory[] = [
@@ -60,7 +67,102 @@ function severityColor(severity: Severity): string {
 }
 
 export function AttackModules() {
+  const { targets, activeTargetId, addRun, addResult, completeRun, isRunning, setIsRunning, setView, setActiveRun } = useStore();
   const [expanded, setExpanded] = useState<Set<AttackCategory>>(new Set());
+  const [customPayloads, setCustomPayloads] = useState<AttackPayload[]>([]);
+  const [customExpanded, setCustomExpanded] = useState(false);
+  const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set());
+  const [runningCustom, setRunningCustom] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("redpincer-custom-payloads");
+      if (stored) setCustomPayloads(JSON.parse(stored));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleCustomSelect = (id: string) => {
+    setSelectedCustomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCustomIds.size === customPayloads.length) {
+      setSelectedCustomIds(new Set());
+    } else {
+      setSelectedCustomIds(new Set(customPayloads.map((p) => p.id)));
+    }
+  };
+
+  const runCustomPayloads = async () => {
+    const target = targets.find((t) => t.id === activeTargetId);
+    if (!target || selectedCustomIds.size === 0) return;
+
+    const payloadsToRun = customPayloads.filter((p) => selectedCustomIds.has(p.id));
+    setRunningCustom(true);
+    setIsRunning(true);
+
+    const runId = generateId();
+    const run: AttackRun = {
+      id: runId,
+      targetId: target.id,
+      targetName: target.name,
+      categories: [...new Set(payloadsToRun.map((p) => p.category))],
+      results: [],
+      startTime: Date.now(),
+      status: "running",
+    };
+    addRun(run);
+    setActiveRun(runId);
+    setView("results");
+
+    try {
+      const res = await fetch("/api/attack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: target.endpoint,
+          apiKey: target.apiKey,
+          model: target.model,
+          provider: target.provider,
+          rawPayloads: payloadsToRun,
+        }),
+      });
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              addResult(runId, JSON.parse(line));
+            } catch {
+              // skip malformed
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Custom payload run failed", err);
+    }
+
+    completeRun(runId);
+    setRunningCustom(false);
+    setIsRunning(false);
+  };
 
   const toggleExpand = (cat: AttackCategory) => {
     setExpanded((prev) => {
@@ -89,6 +191,92 @@ export function AttackModules() {
       </div>
 
       <div className="space-y-3">
+        {/* Custom Payloads Section */}
+        {customPayloads.length > 0 && (
+          <Card className="border-lobster/30 bg-card">
+            <CardHeader
+              className="cursor-pointer select-none transition-colors hover:bg-accent/50"
+              onClick={() => setCustomExpanded(!customExpanded)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🧩</span>
+                  <div>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      Custom Payloads
+                      <Badge variant="outline" className="border-lobster/40 text-lobster text-[10px]">
+                        {customPayloads.length}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="mt-0.5 text-xs">
+                      Payloads you created in the Payload Editor
+                    </CardDescription>
+                  </div>
+                </div>
+                {customExpanded ? (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+
+            {customExpanded && (
+              <CardContent className="pt-0">
+                <Separator className="mb-4" />
+
+                <div className="mb-3 flex items-center justify-between">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={selectedCustomIds.size === customPayloads.length && customPayloads.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      className="border-muted-foreground data-[state=checked]:border-lobster data-[state=checked]:bg-lobster"
+                    />
+                    Select all ({customPayloads.length})
+                  </label>
+
+                  {selectedCustomIds.size > 0 && (
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-lobster text-white hover:bg-lobster/90 disabled:opacity-40 h-7 text-xs"
+                      disabled={runningCustom || isRunning || !activeTargetId}
+                      onClick={runCustomPayloads}
+                    >
+                      {runningCustom ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
+                      Run {selectedCustomIds.size} selected
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {customPayloads.map((payload) => (
+                    <div key={payload.id} className="flex items-start gap-2">
+                      <Checkbox
+                        checked={selectedCustomIds.has(payload.id)}
+                        onCheckedChange={() => toggleCustomSelect(payload.id)}
+                        className="mt-3 border-muted-foreground data-[state=checked]:border-lobster data-[state=checked]:bg-lobster"
+                      />
+                      <div className="flex-1">
+                        <PayloadItem
+                          name={payload.name}
+                          severity={payload.severity}
+                          description={payload.description}
+                          prompt={payload.prompt}
+                          tags={payload.tags}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
+
         {CATEGORIES.map((cat) => {
           const payloads = getPayloadsByCategory(cat);
           const isExpanded = expanded.has(cat);

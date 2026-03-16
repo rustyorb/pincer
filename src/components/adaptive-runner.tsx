@@ -15,7 +15,7 @@ import {
   type FollowUpPlan,
   type FollowUpAttack,
 } from "@/lib/adaptive";
-import type { AttackResult, AttackRun } from "@/lib/types";
+import type { AttackResult, AttackRun, AttackPayload } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 
 export function AdaptiveRunner() {
@@ -44,6 +45,9 @@ export function AdaptiveRunner() {
   const [followUpResults, setFollowUpResults] = useState<AttackResult[]>([]);
   const [running, setRunning] = useState(false);
   const [followUpProgress, setFollowUpProgress] = useState(0);
+  const [aiPlan, setAiPlan] = useState<FollowUpAttack[] | null>(null);
+  const [generatingAiPlan, setGeneratingAiPlan] = useState(false);
+  const [aiPlanError, setAiPlanError] = useState<string | null>(null);
 
   const completedRuns = runs.filter((r) => r.status === "completed" && r.results.length > 0);
   const selectedRun = completedRuns.find((r) => r.id === selectedRunId) || null;
@@ -58,8 +62,43 @@ export function AdaptiveRunner() {
     return generateFollowUpStrategy(profile);
   }, [profile]);
 
-  const runFollowUp = async () => {
-    if (!plan || !selectedRun) return;
+  const generateAiPlan = async () => {
+    if (!profile || !selectedRun) return;
+    const target = targets.find((t) => t.id === selectedRun.targetId);
+    if (!target) return;
+
+    setGeneratingAiPlan(true);
+    setAiPlanError(null);
+    setAiPlan(null);
+
+    try {
+      const res = await fetch("/api/generate-adaptive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: target.endpoint,
+          apiKey: target.apiKey,
+          model: target.model,
+          provider: target.provider,
+          profile,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setAiPlanError(data.error || "Failed to generate AI plan");
+      } else {
+        setAiPlan(data.attacks);
+      }
+    } catch (err) {
+      setAiPlanError(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setGeneratingAiPlan(false);
+    }
+  };
+
+  const runFollowUp = async (attacksToRun?: FollowUpAttack[]) => {
+    const attacks = attacksToRun ?? plan?.attacks;
+    if (!attacks?.length || !selectedRun) return;
 
     const target = targets.find((t) => t.id === selectedRun.targetId);
     if (!target) return;
@@ -74,63 +113,65 @@ export function AdaptiveRunner() {
       id: runId,
       targetId: target.id,
       targetName: target.name,
-      categories: [...new Set(plan.attacks.map((a) => a.category))],
+      categories: [...new Set(attacks.map((a) => a.category))],
       results: [],
       startTime: Date.now(),
       status: "running",
     };
     addRun(run);
 
+    // Convert FollowUpAttacks to AttackPayload objects and send as rawPayloads
+    const rawPayloads: AttackPayload[] = attacks.map((attack, i) => ({
+      id: `adaptive-${generateId()}-${i}`,
+      name: `[Adaptive] ${attack.name}`,
+      description: attack.reasoning,
+      category: attack.category,
+      severity: attack.severity,
+      prompt: attack.prompt,
+      tags: ["adaptive", "ai-generated"],
+    }));
+
     const results: AttackResult[] = [];
-    const total = plan.attacks.length;
 
-    for (let i = 0; i < plan.attacks.length; i++) {
-      const attack = plan.attacks[i];
-      try {
-        const res = await fetch("/api/attack", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            endpoint: target.endpoint,
-            apiKey: target.apiKey,
-            model: target.model,
-            provider: target.provider,
-            payloadIds: [], // We send custom prompts, so use the raw approach
-            categories: [attack.category],
-          }),
-        });
+    try {
+      const res = await fetch("/api/attack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: target.endpoint,
+          apiKey: target.apiKey,
+          model: target.model,
+          provider: target.provider,
+          rawPayloads,
+        }),
+      });
 
-        // Since we're sending custom prompts not in the payload DB, we manually construct
-        // For simplicity, we call the attack API with the category and process results
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.trim()) {
-              try {
-                const result: AttackResult = JSON.parse(line);
-                // Override with our adaptive attack info
-                result.payloadName = `[Adaptive] ${attack.name}`;
-                results.push(result);
-                addResult(runId, result);
-                setFollowUpProgress(Math.round(((i + 1) / total) * 100));
-                setFollowUpResults([...results]);
-              } catch {
-                // skip
-              }
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const result: AttackResult = JSON.parse(line);
+              results.push(result);
+              addResult(runId, result);
+              setFollowUpProgress(Math.round((results.length / rawPayloads.length) * 100));
+              setFollowUpResults([...results]);
+            } catch {
+              // skip malformed lines
             }
           }
         }
-      } catch (err) {
-        console.error(`Adaptive attack failed: ${attack.name}`, err);
       }
+    } catch (err) {
+      console.error("Adaptive follow-up run failed", err);
     }
 
     completeRun(runId);
@@ -372,10 +413,26 @@ export function AdaptiveRunner() {
           {plan && (
             <Card className="border-lobster/30 bg-card">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-lobster">
-                  <TrendingUp className="h-4 w-4" />
-                  Adaptive Follow-up Plan
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-lobster">
+                    <TrendingUp className="h-4 w-4" />
+                    Adaptive Follow-up Plan
+                  </CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-lobster/40 text-lobster hover:bg-lobster/10 text-xs"
+                    disabled={generatingAiPlan || running || isRunning}
+                    onClick={generateAiPlan}
+                  >
+                    {generatingAiPlan ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {generatingAiPlan ? "Generating…" : "AI Plan"}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="mb-3 text-sm text-muted-foreground">{plan.strategy}</p>
@@ -388,52 +445,125 @@ export function AdaptiveRunner() {
                   ))}
                 </div>
 
-                <ScrollArea className="max-h-[300px]">
-                  <div className="flex flex-col gap-2">
-                    {plan.attacks.map((attack, i) => (
-                      <div key={i} className="rounded border border-border p-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Zap className="h-3.5 w-3.5 text-lobster" />
-                          <span className="font-medium text-foreground">{attack.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {CATEGORY_LABELS[attack.category]}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${
-                              attack.severity === "critical"
-                                ? "border-redpincer/50 text-redpincer"
-                                : attack.severity === "high"
-                                  ? "border-warning/50 text-warning"
-                                  : "text-muted-foreground"
-                            }`}
-                          >
-                            {attack.severity}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">{attack.reasoning}</p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                {aiPlanError && (
+                  <p className="mb-3 rounded border border-redpincer/30 bg-redpincer/5 px-3 py-2 text-xs text-redpincer">
+                    AI plan generation failed: {aiPlanError}
+                  </p>
+                )}
 
-                <Button
-                  className="mt-4 w-full gap-2 bg-lobster font-semibold text-white hover:bg-lobster/90 disabled:opacity-40"
-                  disabled={running || isRunning}
-                  onClick={runFollowUp}
-                >
-                  {running ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Running Follow-up ({followUpProgress}%)
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4" />
-                      Run Adaptive Follow-up ({plan.estimatedPayloadCount} attacks)
-                    </>
+                {/* AI-generated plan */}
+                {aiPlan && (
+                  <div className="mb-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5 text-lobster" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-lobster">
+                        AI-Generated Plan ({aiPlan.length} attacks)
+                      </span>
+                    </div>
+                    <ScrollArea className="max-h-[240px]">
+                      <div className="flex flex-col gap-2">
+                        {aiPlan.map((attack, i) => (
+                          <div key={i} className="rounded border border-lobster/20 bg-lobster/5 p-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="h-3.5 w-3.5 text-lobster" />
+                              <span className="font-medium text-foreground">{attack.name}</span>
+                              <Badge variant="outline" className="text-xs">
+                                {CATEGORY_LABELS[attack.category]}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${
+                                  attack.severity === "critical"
+                                    ? "border-redpincer/50 text-redpincer"
+                                    : attack.severity === "high"
+                                      ? "border-warning/50 text-warning"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {attack.severity}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">{attack.reasoning}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <Button
+                      className="mt-3 w-full gap-2 bg-lobster font-semibold text-white hover:bg-lobster/90 disabled:opacity-40"
+                      disabled={running || isRunning}
+                      onClick={() => runFollowUp(aiPlan)}
+                    >
+                      {running ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Running AI Follow-up ({followUpProgress}%)
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Run AI-Generated Plan ({aiPlan.length} attacks)
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Hardcoded plan */}
+                <div className={aiPlan ? "opacity-60" : ""}>
+                  {aiPlan && (
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Template Plan (fallback)
+                    </p>
                   )}
-                </Button>
+                  <ScrollArea className="max-h-[300px]">
+                    <div className="flex flex-col gap-2">
+                      {plan.attacks.map((attack, i) => (
+                        <div key={i} className="rounded border border-border p-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-3.5 w-3.5 text-lobster" />
+                            <span className="font-medium text-foreground">{attack.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {CATEGORY_LABELS[attack.category]}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${
+                                attack.severity === "critical"
+                                  ? "border-redpincer/50 text-redpincer"
+                                  : attack.severity === "high"
+                                    ? "border-warning/50 text-warning"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              {attack.severity}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{attack.reasoning}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  {!aiPlan && (
+                    <Button
+                      className="mt-4 w-full gap-2 bg-lobster font-semibold text-white hover:bg-lobster/90 disabled:opacity-40"
+                      disabled={running || isRunning}
+                      onClick={() => runFollowUp()}
+                    >
+                      {running ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Running Follow-up ({followUpProgress}%)
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4" />
+                          Run Adaptive Follow-up ({plan.estimatedPayloadCount} attacks)
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}

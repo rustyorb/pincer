@@ -15,13 +15,15 @@ npm run start    # Serve production build
 npm run lint     # ESLint (v9 flat config)
 ```
 
+Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
+
 No test framework is configured. Use `npm ci` (not `npm install`) to respect the lockfile.
 
 ## Architecture
 
 **Stack:** Next.js 16 + React 19 + TypeScript (strict) + Tailwind CSS 4 + shadcn/ui (new-york style) + Zustand 5
 
-**All components are client-side** (`"use client"` directive). There are no server components. The app uses a single-page layout where `src/app/page.tsx` switches views based on `store.view` state.
+**All components are client-side** (`"use client"` directive). There are no server components. The app uses a single-page layout where `src/app/page.tsx` switches views based on `store.view` state. Views: `config | attacks | results | reports | chains | session | editor | comparison | adaptive | heatmap | regression | scoring`
 
 ### Data Flow
 
@@ -35,7 +37,7 @@ No test framework is configured. Use `npm ci` (not `npm install`) to respect the
 
 | Module | Purpose |
 |---|---|
-| `src/lib/store.ts` | Zustand store with persist middleware. UI state (view, isRunning) is NOT persisted; data state (targets, runs, categories) IS persisted. |
+| `src/lib/store.ts` | Zustand store (`useStore` hook) with persist middleware. Persisted via `partialize`: targets, activeTargetId, selectedCategories, runs, activeRunId. NOT persisted: view, isRunning. |
 | `src/lib/types.ts` | All TypeScript interfaces and enums. Core types: `TargetConfig`, `AttackPayload`, `AttackResult`, `AnalysisResult`, `AttackRun`, `AttackChain` |
 | `src/lib/llm-client.ts` | Multi-provider client. OpenAI/OpenRouter use chat.completions format; Anthropic uses Messages API with top-level `system` param. 30s timeout. |
 | `src/lib/analysis.ts` | Heuristic response classifier with refusal, compliance, explanation, and hedging pattern detection. Context-aware analysis prevents false positives (e.g., decoding base64 + refusing = refusal, not breach). Outputs classification + severity score (1-10) + confidence (0-1). |

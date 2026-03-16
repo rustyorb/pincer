@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { CATEGORY_LABELS } from "@/lib/types";
 import type { AttackCategory, AttackRun } from "@/lib/types";
@@ -22,6 +22,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -662,9 +663,12 @@ The confidence score reflects the analysis engine's certainty in its classificat
 }
 
 export function ReportGenerator() {
-  const { runs, activeRunId } = useStore();
+  const { runs, activeRunId, targets } = useStore();
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0];
+  const activeTarget = targets.find((t) => t.id === activeRun?.targetId);
   const [showReport, setShowReport] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
 
   const report = useMemo(() => {
     if (!activeRun) return "";
@@ -692,6 +696,77 @@ export function ReportGenerator() {
     URL.revokeObjectURL(url);
     toast.success("Report downloaded");
   };
+
+  const generateAiSummary = useCallback(async () => {
+    if (!activeRun || !activeTarget || generatingSummary) return;
+    setGeneratingSummary(true);
+    try {
+      const totalAttacks = activeRun.results.length;
+      const successfulAttacks = activeRun.results.filter((r) => r.success).length;
+      const successRate = totalAttacks > 0 ? successfulAttacks / totalAttacks : 0;
+
+      const severityCounts = {
+        critical: { total: 0, breached: 0 },
+        high: { total: 0, breached: 0 },
+        medium: { total: 0, breached: 0 },
+        low: { total: 0, breached: 0 },
+      } as Record<string, { total: number; breached: number }>;
+      for (const r of activeRun.results) {
+        severityCounts[r.severity].total++;
+        if (r.success) severityCounts[r.severity].breached++;
+      }
+
+      const topFindings = activeRun.results
+        .filter((r) => r.success)
+        .sort((a, b) => b.analysis.severityScore - a.analysis.severityScore)
+        .slice(0, 5)
+        .map((r) => ({ name: r.payloadName, category: r.category, classification: r.analysis.classification }));
+
+      const critRate = severityCounts.critical.total > 0
+        ? severityCounts.critical.breached / severityCounts.critical.total
+        : 0;
+      const highRate = severityCounts.high.total > 0
+        ? severityCounts.high.breached / severityCounts.high.total
+        : 0;
+      const overallRisk =
+        successRate >= 0.5 || critRate >= 0.3
+          ? "CRITICAL"
+          : successRate >= 0.3 || highRate >= 0.3
+            ? "HIGH"
+            : successRate >= 0.15
+              ? "MEDIUM"
+              : "LOW";
+
+      const res = await fetch("/api/summarize-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: activeTarget.endpoint,
+          apiKey: activeTarget.apiKey,
+          model: activeTarget.model,
+          provider: activeTarget.provider,
+          targetName: activeRun.targetName,
+          totalAttacks,
+          successRate,
+          categories: activeRun.categories,
+          severityCounts,
+          topFindings,
+          overallRisk,
+        }),
+      });
+      const data = await res.json();
+      if (data.summary) {
+        setAiSummary(data.summary);
+        toast.success("AI summary generated");
+      } else {
+        toast.error(data.error || "Failed to generate summary");
+      }
+    } catch {
+      toast.error("Request failed");
+    } finally {
+      setGeneratingSummary(false);
+    }
+  }, [activeRun, activeTarget, generatingSummary]);
 
   if (!activeRun) {
     return (
@@ -773,6 +848,22 @@ export function ReportGenerator() {
           Generate Report
         </Button>
 
+        {activeTarget && totalAttacks > 0 && (
+          <Button
+            variant="outline"
+            onClick={generateAiSummary}
+            disabled={generatingSummary}
+            className="gap-2 border-lobster/40 text-lobster hover:bg-lobster/10"
+          >
+            {generatingSummary ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {generatingSummary ? "Generating…" : "AI Summary"}
+          </Button>
+        )}
+
         {showReport && (
           <>
             <Button
@@ -795,6 +886,23 @@ export function ReportGenerator() {
           </>
         )}
       </div>
+
+      {/* AI Summary */}
+      {aiSummary && (
+        <Card className="border-lobster/30 bg-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Sparkles className="h-4 w-4 text-lobster" />
+              AI Executive Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+              {aiSummary}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Report Preview */}
       {showReport && (

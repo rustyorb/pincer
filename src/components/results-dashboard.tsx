@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import type { AttackCategory, Severity, AttackResult, AnalysisClassification } from "@/lib/types";
 import { CATEGORY_LABELS, SEVERITY_ORDER } from "@/lib/types";
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +33,10 @@ import {
   ChevronRight,
   Shield,
   Target,
+  Sparkles,
+  Wand2,
+  Copy,
+  BookmarkPlus,
 } from "lucide-react";
 
 const ALL_CATEGORIES: AttackCategory[] = [
@@ -118,14 +123,109 @@ function statusIcon(result: AttackResult) {
 }
 
 export function ResultsDashboard() {
-  const { runs, activeRunId } = useStore();
+  const { runs, activeRunId, targets } = useStore();
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0];
+  const activeTarget = targets.find((t) => t.id === activeRun?.targetId);
 
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedResults, setExpandedResults] = useState<Set<string>>(
     new Set()
+  );
+
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explaining, setExplaining] = useState<Record<string, boolean>>({});
+  const [mutations, setMutations] = useState<
+    Record<string, { mutatedPrompt: string; technique: string }>
+  >({});
+  const [mutating, setMutating] = useState<Record<string, boolean>>({});
+
+  const explainBreach = useCallback(
+    async (result: AttackResult) => {
+      if (!activeTarget || explaining[result.id]) return;
+      setExplaining((prev) => ({ ...prev, [result.id]: true }));
+      try {
+        const res = await fetch("/api/explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: activeTarget.endpoint,
+            apiKey: activeTarget.apiKey,
+            model: activeTarget.model,
+            provider: activeTarget.provider,
+            prompt: result.prompt,
+            response: result.response,
+            classification: result.analysis.classification,
+            category: result.category,
+          }),
+        });
+        const data = await res.json();
+        if (data.explanation) {
+          setExplanations((prev) => ({ ...prev, [result.id]: data.explanation }));
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setExplaining((prev) => ({ ...prev, [result.id]: false }));
+      }
+    },
+    [activeTarget, explaining]
+  );
+
+  const mutatePayload = useCallback(
+    async (result: AttackResult) => {
+      if (!activeTarget || mutating[result.id]) return;
+      setMutating((prev) => ({ ...prev, [result.id]: true }));
+      try {
+        const res = await fetch("/api/mutate-payload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: activeTarget.endpoint,
+            apiKey: activeTarget.apiKey,
+            model: activeTarget.model,
+            provider: activeTarget.provider,
+            originalPrompt: result.prompt,
+            category: result.category,
+          }),
+        });
+        const data = await res.json();
+        if (data.mutatedPrompt) {
+          setMutations((prev) => ({
+            ...prev,
+            [result.id]: { mutatedPrompt: data.mutatedPrompt, technique: data.technique },
+          }));
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setMutating((prev) => ({ ...prev, [result.id]: false }));
+      }
+    },
+    [activeTarget, mutating]
+  );
+
+  const saveMutationToEditor = useCallback(
+    (result: AttackResult, mutatedPrompt: string) => {
+      const existing = JSON.parse(
+        localStorage.getItem("redpincer-custom-payloads") || "[]"
+      );
+      const newPayload = {
+        id: `custom-${Date.now()}`,
+        name: `[Mutated] ${result.payloadName}`,
+        description: `AI-mutated variant of "${result.payloadName}"`,
+        category: result.category,
+        severity: result.severity,
+        prompt: mutatedPrompt,
+        tags: ["ai-generated", "mutated"],
+      };
+      localStorage.setItem(
+        "redpincer-custom-payloads",
+        JSON.stringify([...existing, newPayload])
+      );
+    },
+    []
   );
 
   const results = activeRun?.results ?? [];
@@ -536,6 +636,98 @@ export function ResultsDashboard() {
                                 </pre>
                               ))}
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* AI Breach Explanation */}
+                    {result.success && activeTarget && (
+                      <div className="pt-1">
+                        {!explanations[result.id] ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 border-redpincer/30 text-redpincer hover:bg-redpincer/10 text-xs h-7"
+                            disabled={explaining[result.id]}
+                            onClick={() => explainBreach(result)}
+                          >
+                            {explaining[result.id] ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3 w-3" />
+                            )}
+                            {explaining[result.id] ? "Analyzing…" : "Explain This Breach"}
+                          </Button>
+                        ) : (
+                          <div className="rounded border border-redpincer/20 bg-redpincer/5 p-3">
+                            <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-redpincer">
+                              <Sparkles className="h-3 w-3" />
+                              AI Security Analysis
+                            </p>
+                            <p className="text-sm text-foreground leading-relaxed">
+                              {explanations[result.id]}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* AI Payload Mutation */}
+                    {!result.success && result.status !== "error" && activeTarget && (
+                      <div className="pt-1">
+                        {!mutations[result.id] ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 border-warning/30 text-warning hover:bg-warning/10 text-xs h-7"
+                            disabled={mutating[result.id]}
+                            onClick={() => mutatePayload(result)}
+                          >
+                            {mutating[result.id] ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Wand2 className="h-3 w-3" />
+                            )}
+                            {mutating[result.id] ? "Mutating…" : "Mutate with AI"}
+                          </Button>
+                        ) : (
+                          <div className="rounded border border-warning/20 bg-warning/5 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-warning">
+                                <Wand2 className="h-3 w-3" />
+                                Mutated Payload — {mutations[result.id].technique}
+                              </p>
+                              <div className="flex gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(
+                                      mutations[result.id].mutatedPrompt
+                                    )
+                                  }
+                                >
+                                  <Copy className="h-3 w-3" />
+                                  Copy
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={() =>
+                                    saveMutationToEditor(result, mutations[result.id].mutatedPrompt)
+                                  }
+                                >
+                                  <BookmarkPlus className="h-3 w-3" />
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                            <pre className="rounded bg-background/50 px-2 py-2 font-mono text-xs text-foreground whitespace-pre-wrap">
+                              {mutations[result.id].mutatedPrompt}
+                            </pre>
                           </div>
                         )}
                       </div>
