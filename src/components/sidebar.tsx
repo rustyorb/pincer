@@ -28,7 +28,9 @@ import {
   Grid3X3,
   GitBranch,
   Calculator,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/lib/use-auth";
 
 const ATTACK_CATEGORIES: AttackCategory[] = [
   "injection",
@@ -55,6 +57,7 @@ export function Sidebar() {
     setActiveRun,
   } = useStore();
 
+  const { authEnabled, username, logout } = useAuth();
   const abortRef = useRef<AbortController | null>(null);
 
   const canRun =
@@ -401,6 +404,23 @@ export function Sidebar() {
             <Play className="h-4 w-4" />
             RUN ATTACK
           </Button>
+        )}
+
+        {authEnabled && (
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-muted-foreground truncate">
+              {username || "authenticated"}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+              onClick={logout}
+            >
+              <LogOut className="h-3 w-3" />
+              Logout
+            </Button>
+          </div>
         )}
       </div>
     </aside>

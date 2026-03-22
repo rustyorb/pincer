@@ -62,6 +62,20 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 - Use `cn()` from `src/lib/utils.ts` (clsx + tailwind-merge) for conditional classes
 - Icons from `lucide-react`, toasts from `sonner`
 
+### Authentication
+
+Auth is **opt-in** via environment variables. When `PINCER_USERNAME` and `PINCER_PASSWORD` are both set, all routes are protected by session-based auth with HMAC-signed cookies. Set `PINCER_AUTH_DISABLED=true` to explicitly disable. See `.env.example`.
+
+| Module | Purpose |
+|---|---|
+| `src/lib/auth.ts` | Core auth logic — credential validation (timing-safe), HMAC session tokens, config |
+| `src/lib/use-auth.ts` | Client-side React hook for auth status + logout |
+| `src/middleware.ts` | Next.js middleware — redirects unauthenticated requests to `/login`, returns 401 for API routes |
+| `src/app/login/page.tsx` | Login page with form |
+| `src/app/api/auth/login/route.ts` | POST — validates credentials, sets httpOnly session cookie |
+| `src/app/api/auth/logout/route.ts` | POST — clears session cookie |
+| `src/app/api/auth/status/route.ts` | GET — returns auth state (enabled, authenticated, username) |
+
 ## Conventions
 
 - Path alias: `@/*` maps to `./src/*`
