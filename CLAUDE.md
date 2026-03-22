@@ -17,7 +17,7 @@ npm run lint     # ESLint (v9 flat config)
 
 Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 
-No test framework is configured. Use `npm ci` (not `npm install`) to respect the lockfile.
+**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/`. Use `npm ci` (not `npm install`) to respect the lockfile.
 
 ## Architecture
 
