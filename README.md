@@ -39,7 +39,7 @@
 <td width="50%">
 
 ### :dart: Attack Engine
-- **160+ Attack Payloads** across 4 categories
+- **221 Attack Payloads** across 7 categories
 - **Model-Specific Attacks** for GPT, Claude, Llama
 - **20 Variant Transforms** (unicode, encoding, case, etc.)
 - **Attack Chaining** with template variables
@@ -69,6 +69,9 @@
 | :unlock: **Jailbreak** | 40 | Persona splitting, gradual escalation, hypothetical framing, roleplay exploitation |
 | :mag: **Data Extraction** | 40 | System prompt theft, training data probing, membership inference, embedding extraction |
 | :shield: **Guardrail Bypass** | 40 | Output filter evasion, multi-language bypass, homoglyph tricks, context overflow |
+| :wrench: **Tool Abuse** | 22 | Tool enumeration, schema exfiltration, parameter injection, privilege escalation, workflow hijack |
+| :repeat: **Multi-Turn Escalation** | 21 | 5 escalation chains: rapport→authority, context shifting, boundary testing, role anchoring, commitment |
+| :locked_with_key: **Encoding Bypass** | 18 | Base64, hex, ROT13, unicode homoglyphs, reverse text, morse code, layered encoding |
 
 ### Multi-Provider Support
 
@@ -237,7 +240,10 @@ src/
         ├── injection.ts               # 40 prompt injection payloads
         ├── jailbreak.ts               # 40 jailbreak payloads
         ├── extraction.ts              # 40 data extraction payloads
-        └── bypass.ts                  # 40 guardrail bypass payloads
+        ├── bypass.ts                  # 40 guardrail bypass payloads
+        ├── tool-abuse.ts              # 22 tool abuse payloads
+        ├── multi-turn.ts              # 21 multi-turn escalation chains
+        └── encoding.ts               # 18 encoding bypass payloads
 ```
 
 ---
