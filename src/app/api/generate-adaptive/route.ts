@@ -81,7 +81,7 @@ function parseAdaptiveAttacks(raw: string): FollowUpAttack[] | null {
     const parsed = JSON.parse(jsonStr);
     if (!Array.isArray(parsed)) return null;
 
-    const validCategories: AttackCategory[] = ["injection", "jailbreak", "extraction", "bypass"];
+    const validCategories: AttackCategory[] = ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"];
     const validSeverities: Severity[] = ["critical", "high", "medium", "low"];
 
     const attacks: FollowUpAttack[] = parsed

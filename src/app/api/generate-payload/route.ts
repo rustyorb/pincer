@@ -20,6 +20,12 @@ const CATEGORY_DESCRIPTIONS: Record<AttackCategory, string> = {
     "Data extraction attacks that manipulate the LLM into leaking sensitive information such as system prompts, training data fragments, PII, or hidden instructions.",
   bypass:
     "Guardrail bypass attacks that circumvent the LLM's safety filters and content policies through encoding tricks, language switching, creative framing, or other evasion techniques.",
+  tool_abuse:
+    "Tool abuse attacks that manipulate LLMs with function-calling capabilities to enumerate tools, exfiltrate schemas, inject malicious parameters, escalate privileges, or hijack agentic workflows.",
+  multi_turn:
+    "Multi-turn escalation attacks that exploit context-dependent compliance by gradually shifting conversations from benign rapport-building to adversarial extraction across multiple turns.",
+  encoding:
+    "Encoding bypass attacks that hide malicious instructions inside base64, hex, ROT13, unicode homoglyphs, morse code, or layered encoding schemes to circumvent content filters.",
 };
 
 function buildMetaPrompt(category: AttackCategory, context?: string): string {

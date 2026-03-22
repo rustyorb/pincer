@@ -33,6 +33,9 @@ const CATEGORIES: AttackCategory[] = [
   "jailbreak",
   "extraction",
   "bypass",
+  "tool_abuse",
+  "multi_turn",
+  "encoding",
 ];
 
 const CATEGORY_DESCRIPTIONS: Record<AttackCategory, string> = {
@@ -44,6 +47,12 @@ const CATEGORY_DESCRIPTIONS: Record<AttackCategory, string> = {
     "Attacks aimed at extracting system prompts, training data, or sensitive information from the model.",
   bypass:
     "Strategies to evade content filters, safety guardrails, and output restrictions.",
+  tool_abuse:
+    "Manipulates tool-calling capabilities to enumerate tools, inject parameters, escalate privileges, or hijack agentic workflows.",
+  multi_turn:
+    "Exploits context-dependent compliance through multi-turn escalation chains that gradually shift from benign to adversarial.",
+  encoding:
+    "Tests whether encoding or obfuscation techniques can circumvent content filters by hiding instructions in base64, hex, ROT13, unicode, and more.",
 };
 
 const CATEGORY_ICONS: Record<AttackCategory, string> = {
@@ -51,6 +60,9 @@ const CATEGORY_ICONS: Record<AttackCategory, string> = {
   jailbreak: "🔓",
   extraction: "🔍",
   bypass: "🚧",
+  tool_abuse: "🔧",
+  multi_turn: "🔄",
+  encoding: "🔐",
 };
 
 function severityColor(severity: Severity): string {

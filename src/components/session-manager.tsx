@@ -150,7 +150,7 @@ export function SessionManager() {
       runs: [],
       activeTargetId: null,
       activeRunId: null,
-      selectedCategories: ["injection", "jailbreak", "extraction", "bypass"],
+      selectedCategories: ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"],
     });
     setClearDialogOpen(false);
     setClearConfirmText("");

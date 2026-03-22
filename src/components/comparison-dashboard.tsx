@@ -204,7 +204,7 @@ export function ComparisonDashboard() {
       const errors = results.filter((r) => r.status === "error").length;
 
       const categoryBreachRates = {} as Record<AttackCategory, { breached: number; total: number }>;
-      for (const cat of ["injection", "jailbreak", "extraction", "bypass"] as AttackCategory[]) {
+      for (const cat of ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding", "tool_abuse", "multi_turn", "encoding"] as AttackCategory[]) {
         const catResults = results.filter((r) => r.category === cat);
         categoryBreachRates[cat] = {
           breached: catResults.filter((r) => r.success).length,
@@ -291,7 +291,7 @@ export function ComparisonDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-2">
-              {(["injection", "jailbreak", "extraction", "bypass"] as AttackCategory[]).map((cat) => (
+              {(["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"] as AttackCategory[]).map((cat) => (
                 <label
                   key={cat}
                   className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted"
@@ -413,7 +413,7 @@ export function ComparisonDashboard() {
                 </div>
                 {/* Per-category bars */}
                 <div className="mt-3 flex flex-col gap-1.5">
-                  {(["injection", "jailbreak", "extraction", "bypass"] as AttackCategory[]).map((cat) => {
+                  {(["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"] as AttackCategory[]).map((cat) => {
                     const catData = summary.categoryBreachRates[cat];
                     if (!catData || catData.total === 0) return null;
                     const pct = Math.round((catData.breached / catData.total) * 100);

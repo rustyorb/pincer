@@ -64,6 +64,14 @@ function categoryBadgeClass(category: AttackCategory): string {
       return "bg-blue-500/20 text-blue-400 border-blue-500/30";
     case "bypass":
       return "bg-lobster/20 text-lobster border-lobster/30";
+    case "tool_abuse":
+      return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    case "multi_turn":
+      return "bg-teal-500/20 text-teal-400 border-teal-500/30";
+    case "encoding":
+      return "bg-cyan-500/20 text-cyan-400 border-cyan-500/30";
+    default:
+      return "bg-gray-500/20 text-gray-400 border-gray-500/30";
   }
 }
 

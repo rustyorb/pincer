@@ -1,4 +1,4 @@
-export type AttackCategory = "injection" | "jailbreak" | "extraction" | "bypass";
+export type AttackCategory = "injection" | "jailbreak" | "extraction" | "bypass" | "tool_abuse" | "multi_turn" | "encoding";
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
@@ -96,6 +96,9 @@ export const CATEGORY_LABELS: Record<AttackCategory, string> = {
   jailbreak: "Jailbreak",
   extraction: "Data Extraction",
   bypass: "Guardrail Bypass",
+  tool_abuse: "Tool Abuse",
+  multi_turn: "Multi-Turn Escalation",
+  encoding: "Encoding Bypass",
 };
 
 export const SEVERITY_ORDER: Record<Severity, number> = {

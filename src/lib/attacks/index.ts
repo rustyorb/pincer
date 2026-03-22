@@ -4,11 +4,17 @@ export { injectionPayloads } from "./injection";
 export { jailbreakPayloads } from "./jailbreak";
 export { extractionPayloads } from "./extraction";
 export { bypassPayloads } from "./bypass";
+export { toolAbusePayloads } from "./tool-abuse";
+export { multiTurnPayloads } from "./multi-turn";
+export { encodingPayloads } from "./encoding";
 
 import { injectionPayloads } from "./injection";
 import { jailbreakPayloads } from "./jailbreak";
 import { extractionPayloads } from "./extraction";
 import { bypassPayloads } from "./bypass";
+import { toolAbusePayloads } from "./tool-abuse";
+import { multiTurnPayloads } from "./multi-turn";
+import { encodingPayloads } from "./encoding";
 
 /** All attack payloads from every category, combined into a single array. */
 export const allPayloads: AttackPayload[] = [
@@ -16,6 +22,9 @@ export const allPayloads: AttackPayload[] = [
   ...jailbreakPayloads,
   ...extractionPayloads,
   ...bypassPayloads,
+  ...toolAbusePayloads,
+  ...multiTurnPayloads,
+  ...encodingPayloads,
 ];
 
 /** Return all payloads that belong to the given category. */

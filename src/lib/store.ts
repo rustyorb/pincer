@@ -62,7 +62,7 @@ export const useStore = create<AppState>()(
       setActiveTarget: (id) => set({ activeTargetId: id }),
 
       // Attack selection
-      selectedCategories: ["injection", "jailbreak", "extraction", "bypass"],
+      selectedCategories: ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"],
       toggleCategory: (category) =>
         set((state) => ({
           selectedCategories: state.selectedCategories.includes(category)

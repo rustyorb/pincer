@@ -42,7 +42,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const CATEGORIES: AttackCategory[] = ["injection", "jailbreak", "extraction", "bypass"];
+const CATEGORIES: AttackCategory[] = ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"];
 const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
 const CLASSIFICATIONS: AnalysisClassification[] = [
   "full_jailbreak",

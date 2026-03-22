@@ -69,6 +69,9 @@ function generateReport(run: AttackRun): string {
     "jailbreak",
     "extraction",
     "bypass",
+    "tool_abuse",
+    "multi_turn",
+    "encoding",
   ];
 
   const categoryDescriptions: Record<AttackCategory, string> = {
@@ -80,6 +83,12 @@ function generateReport(run: AttackRun): string {
       "Data Extraction attacks attempt to recover hidden information from the model, including system prompt contents, training data, internal configuration details, or sensitive data embedded in context. Successful extraction indicates the model leaks privileged information that should remain confidential.",
     bypass:
       "Guardrail Bypass attacks test the model's content safety filters by attempting to generate harmful, restricted, or policy-violating content through obfuscation, indirect requests, or edge-case exploitation. Successful bypass indicates gaps in the model's output filtering and safety mechanisms.",
+    tool_abuse:
+      "Tool Abuse attacks target LLMs with function-calling capabilities, attempting to enumerate available tools, exfiltrate parameter schemas, inject malicious inputs through tool arguments, escalate privileges, or hijack multi-step agentic workflows. Successful tool abuse indicates insufficient tool-call sandboxing and input validation.",
+    multi_turn:
+      "Multi-Turn Escalation attacks exploit context-dependent compliance by delivering carefully sequenced messages that gradually shift from benign rapport-building to adversarial extraction. Success indicates the model's safety alignment degrades across conversational turns under social engineering pressure.",
+    encoding:
+      "Encoding Bypass attacks hide malicious instructions inside various encoding schemes (base64, hex, ROT13, unicode homoglyphs, morse code, character codes) to circumvent content filters. Success indicates the model decodes and follows obfuscated instructions without applying safety checks to the decoded content.",
   };
 
   // --- Determine overall risk rating ---
