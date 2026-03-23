@@ -56,6 +56,7 @@
 - **Verbose Pen-Test Reports** with 10 sections + appendices
 - **Multi-Target Comparison** — side-by-side profiles
 - **Regression Testing** — track fixes over time
+- **Export: JSON / CSV / SARIF** — machine-readable output for compliance & SIEM integration
 
 </td>
 </tr>
@@ -109,6 +110,8 @@ OpenAI  ·  Anthropic  ·  OpenRouter  ·  Any OpenAI-compatible endpoint
 - :wrench: **Tool Abuse Payloads** — 22 payloads for tool enumeration, schema exfiltration, privilege escalation
 - :repeat: **Multi-Turn Escalation** — 21 payloads across 5 escalation chain strategies
 - :locked_with_key: **Encoding Bypass** — 18 payloads testing base64, hex, ROT13, unicode, and layered encoding
+- :outbox_tray: **Structured Export** — Download results as JSON, CSV, or SARIF v2.1.0 for CI/CD and SIEM integration
+- :key: **API Key Vault** — Server-side AES-256-GCM encrypted key storage (keys never persist client-side)
 
 </details>
 
@@ -150,14 +153,14 @@ graph LR
     C --> D[Review Results]
     D --> E[Generate Report]
     D --> F[Run Adaptive Follow-up]
-    E --> G[Export Markdown]
+    E --> G[Export MD / JSON / CSV / SARIF]
 ```
 
 1. **Configure a Target** — Add an LLM endpoint with provider, API key, and model (auto-fetched)
 2. **Select Attack Categories** — Check the categories to test
 3. **Run Attack** — Hit RUN to stream attacks; hit STOP to cancel anytime
 4. **Review Results** — Analyze with heuristic classification, severity scores, and leaked data highlights
-5. **Generate Report** — Export comprehensive findings as Markdown
+5. **Generate Report** — Export findings as Markdown, JSON, CSV, or SARIF
 
 ### Advanced Tools
 
@@ -170,6 +173,7 @@ graph LR
 | **Scoring** | Define custom rubrics with weighted category/severity/classification scores |
 | **Chains** | Build multi-step attacks with `{{previous_response}}` template variables |
 | **Payload Editor** | Create custom payloads with syntax highlighting + AI generation |
+| **Export** | Download results as JSON (full data), CSV (spreadsheet), or SARIF (GitHub/Azure security) |
 
 ---
 
@@ -202,6 +206,7 @@ Target Config ──> POST /api/attack ──> NDJSON Stream ──> Heuristic A
 | `/api/explain` | POST | AI-powered explanation of attack results |
 | `/api/mutate-payload` | POST | AI mutation of blocked payloads to find bypasses |
 | `/api/summarize-run` | POST | AI-generated executive summary of attack run |
+| `/api/keys` | POST/DELETE/GET | Server-side encrypted API key vault (store, remove, check) |
 | `/api/auth/login` | POST | Session-based login (when auth enabled) |
 | `/api/auth/logout` | POST | Clear session cookie |
 | `/api/auth/status` | GET | Check authentication state |
@@ -251,6 +256,7 @@ src/
     ├── scoring.ts                     # Custom scoring rubric engine
     ├── chains.ts                      # Attack chain definitions
     ├── variants.ts                    # 20 payload transforms
+    ├── export.ts                      # Structured data export (JSON/CSV/SARIF)
     ├── persistence.ts                 # Session export/import
     ├── auth.ts                        # Auth logic (HMAC sessions, credential validation)
     ├── use-auth.ts                    # React hook for auth status

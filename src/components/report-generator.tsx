@@ -23,8 +23,18 @@ import {
   AlertTriangle,
   Loader2,
   Sparkles,
+  FileJson,
+  Sheet,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  exportRunAsJSON,
+  exportRunAsCSV,
+  exportRunAsSARIF,
+  downloadFile,
+  getExportFilename,
+} from "@/lib/export";
 
 function generateReport(run: AttackRun): string {
   // --- Core metrics ---
@@ -706,6 +716,27 @@ export function ReportGenerator() {
     toast.success("Report downloaded");
   };
 
+  const downloadJSON = () => {
+    if (!activeRun) return;
+    const json = exportRunAsJSON(activeRun);
+    downloadFile(json, getExportFilename(activeRun.targetName, "json"), "application/json");
+    toast.success("JSON export downloaded");
+  };
+
+  const downloadCSV = () => {
+    if (!activeRun) return;
+    const csv = exportRunAsCSV(activeRun);
+    downloadFile(csv, getExportFilename(activeRun.targetName, "csv"), "text/csv");
+    toast.success("CSV export downloaded");
+  };
+
+  const downloadSARIF = () => {
+    if (!activeRun) return;
+    const sarif = exportRunAsSARIF(activeRun);
+    downloadFile(sarif, getExportFilename(activeRun.targetName, "sarif"), "application/json");
+    toast.success("SARIF export downloaded");
+  };
+
   const generateAiSummary = useCallback(async () => {
     if (!activeRun || !activeTarget || generatingSummary) return;
     setGeneratingSummary(true);
@@ -891,6 +922,38 @@ export function ReportGenerator() {
             >
               <Download className="h-4 w-4" />
               Download .md
+            </Button>
+          </>
+        )}
+
+        {/* Data Export buttons — always visible when there are results */}
+        {totalAttacks > 0 && (
+          <>
+            <Button
+              variant="outline"
+              onClick={downloadJSON}
+              className="gap-2 border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+            >
+              <FileJson className="h-4 w-4" />
+              Export JSON
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={downloadCSV}
+              className="gap-2 border-success/40 text-success hover:bg-success/10"
+            >
+              <Sheet className="h-4 w-4" />
+              Export CSV
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={downloadSARIF}
+              className="gap-2 border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Export SARIF
             </Button>
           </>
         )}

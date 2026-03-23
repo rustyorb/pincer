@@ -46,6 +46,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 | `src/lib/attacks/*.ts` | 222 payloads across 7 categories with id format `inj-001`, `jb-001`, `ext-001`, `byp-001`, `ta-001`, `mt-001`, `enc-001` |
 | `src/lib/adaptive.ts` | Weakness analysis engine — examines run results to identify vulnerability patterns and generate follow-up strategies |
 | `src/lib/scoring.ts` | Custom scoring rubric system — weighted scoring by category, severity, classification with letter grades |
+| `src/lib/export.ts` | Structured data export — JSON (full results), CSV (flat table), SARIF v2.1.0 (industry standard for security tools) |
 
 ### API Routes
 
