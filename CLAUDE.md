@@ -43,7 +43,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 | `src/lib/analysis.ts` | Heuristic response classifier with refusal, compliance, explanation, and hedging pattern detection. Context-aware analysis prevents false positives (e.g., decoding base64 + refusing = refusal, not breach). Outputs classification + severity score (1-10) + confidence (0-1). |
 | `src/lib/chains.ts` | Sequential multi-step attacks. Steps support `{{previous_response}}` and `{{step:stepId}}` template variables. Response transforms: full, extract_json, extract_code, first_line, last_paragraph. |
 | `src/lib/variants.ts` | 20 payload transformations (case, unicode homoglyphs, base64, ROT13, leetspeak, zero-width spaces, etc.) |
-| `src/lib/attacks/*.ts` | 160 payloads (40 per category) with id format `inj-001`, `jb-001`, `ext-001`, `byp-001` |
+| `src/lib/attacks/*.ts` | 222 payloads across 7 categories with id format `inj-001`, `jb-001`, `ext-001`, `byp-001`, `ta-001`, `mt-001`, `enc-001` |
 | `src/lib/adaptive.ts` | Weakness analysis engine — examines run results to identify vulnerability patterns and generate follow-up strategies |
 | `src/lib/scoring.ts` | Custom scoring rubric system — weighted scoring by category, severity, classification with letter grades |
 
@@ -54,6 +54,10 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 - `POST /api/test-connection` — Validates LLM endpoint connectivity
 - `POST /api/models` — Fetches available models from provider API (OpenAI, Anthropic hardcoded list, OpenRouter)
 - `POST /api/generate-payload` — Uses target LLM to generate new attack payloads via meta-prompting
+- `POST /api/generate-adaptive` — Uses target LLM to generate follow-up attacks based on weakness profile
+- `POST /api/explain` — Uses target LLM to explain why an attack result was classified as it was
+- `POST /api/mutate-payload` — Uses target LLM to mutate a blocked payload into a new bypass attempt
+- `POST /api/summarize-run` — Uses target LLM to generate executive summary of an attack run
 
 ### Styling
 

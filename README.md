@@ -39,7 +39,7 @@
 <td width="50%">
 
 ### :dart: Attack Engine
-- **221 Attack Payloads** across 7 categories
+- **222 Attack Payloads** across 7 categories
 - **Model-Specific Attacks** for GPT, Claude, Llama
 - **20 Variant Transforms** (unicode, encoding, case, etc.)
 - **Attack Chaining** with template variables
@@ -66,7 +66,7 @@
 | Category | Payloads | Description |
 |:---------|:--------:|:------------|
 | :syringe: **Prompt Injection** | 40 | Instruction override, delimiter confusion, indirect injection, payload smuggling |
-| :unlock: **Jailbreak** | 40 | Persona splitting, gradual escalation, hypothetical framing, roleplay exploitation |
+| :unlock: **Jailbreak** | 41 | Persona splitting, gradual escalation, hypothetical framing, roleplay exploitation |
 | :mag: **Data Extraction** | 40 | System prompt theft, training data probing, membership inference, embedding extraction |
 | :shield: **Guardrail Bypass** | 40 | Output filter evasion, multi-language bypass, homoglyph tricks, context overflow |
 | :wrench: **Tool Abuse** | 22 | Tool enumeration, schema exfiltration, parameter injection, privilege escalation, workflow hijack |
@@ -103,7 +103,12 @@ OpenAI  ·  Anthropic  ·  OpenRouter  ·  Any OpenAI-compatible endpoint
 - :world_map: **Vulnerability Heatmap** — Visual matrix of success rates
 - :repeat: **Regression Testing** — Save baselines, detect patched/new vulnerabilities
 - :pencil2: **Custom Scoring Rubrics** — Weighted criteria with letter grades
-- **60 new payloads** — Now 160 total (40 per category)
+- **60 new payloads** — Now 222 total across 7 categories
+- :lock: **Session-Based Auth** — Opt-in username/password protection with HMAC cookies
+- :shield: **Rate Limiting** — Sliding window rate limits on all API routes
+- :wrench: **Tool Abuse Payloads** — 22 payloads for tool enumeration, schema exfiltration, privilege escalation
+- :repeat: **Multi-Turn Escalation** — 21 payloads across 5 escalation chain strategies
+- :locked_with_key: **Encoding Bypass** — 18 payloads testing base64, hex, ROT13, unicode, and layered encoding
 
 </details>
 
@@ -193,6 +198,13 @@ Target Config ──> POST /api/attack ──> NDJSON Stream ──> Heuristic A
 | `/api/test-connection` | POST | Validates endpoint connectivity |
 | `/api/models` | POST | Fetches available models from provider |
 | `/api/generate-payload` | POST | AI-powered payload generation |
+| `/api/generate-adaptive` | POST | AI-generated follow-up attacks based on weakness analysis |
+| `/api/explain` | POST | AI-powered explanation of attack results |
+| `/api/mutate-payload` | POST | AI mutation of blocked payloads to find bypasses |
+| `/api/summarize-run` | POST | AI-generated executive summary of attack run |
+| `/api/auth/login` | POST | Session-based login (when auth enabled) |
+| `/api/auth/logout` | POST | Clear session cookie |
+| `/api/auth/status` | GET | Check authentication state |
 
 ---
 
@@ -209,7 +221,12 @@ src/
 │       ├── chain/route.ts             # Chain execution
 │       ├── test-connection/route.ts   # Connection validation
 │       ├── models/route.ts            # Model list fetching
-│       └── generate-payload/route.ts  # AI payload generation
+│       ├── generate-payload/route.ts  # AI payload generation
+│       ├── generate-adaptive/route.ts # AI adaptive follow-up generation
+│       ├── explain/route.ts           # AI result explanation
+│       ├── mutate-payload/route.ts    # AI payload mutation
+│       ├── summarize-run/route.ts     # AI run summarization
+│       └── auth/                      # Auth endpoints (login/logout/status)
 ├── components/
 │   ├── sidebar.tsx                    # Navigation + targets + run/stop
 │   ├── target-config.tsx              # Target CRUD + model dropdown
@@ -235,6 +252,10 @@ src/
     ├── chains.ts                      # Attack chain definitions
     ├── variants.ts                    # 20 payload transforms
     ├── persistence.ts                 # Session export/import
+    ├── auth.ts                        # Auth logic (HMAC sessions, credential validation)
+    ├── use-auth.ts                    # React hook for auth status
+    ├── rate-limit.ts                  # Sliding window rate limiter
+    ├── uuid.ts                        # ID generation utility
     └── attacks/
         ├── index.ts                   # Payload aggregation + queries
         ├── injection.ts               # 40 prompt injection payloads
@@ -244,6 +265,44 @@ src/
         ├── tool-abuse.ts              # 22 tool abuse payloads
         ├── multi-turn.ts              # 21 multi-turn escalation chains
         └── encoding.ts               # 18 encoding bypass payloads
+```
+
+---
+
+## :lock: Security
+
+### Authentication
+
+Auth is **opt-in** via environment variables. When `PINCER_USERNAME` and `PINCER_PASSWORD` are both set, all routes are protected by session-based auth with HMAC-signed cookies.
+
+```bash
+# .env or .env.local
+PINCER_USERNAME=admin
+PINCER_PASSWORD=your-secure-password
+```
+
+Set `PINCER_AUTH_DISABLED=true` to explicitly disable even when credentials are set. See `.env.example`.
+
+### Rate Limiting
+
+All API routes are rate-limited via in-memory sliding window (always active, resets on restart):
+
+| Tier | Routes | Limit |
+|:-----|:-------|:------|
+| `auth` | `/api/auth/*` | 5 req / 60s |
+| `attack` | `/api/attack`, `/api/chain`, `/api/generate-adaptive` | 10 req / 60s |
+| `api` | All other `/api/*` | 30 req / 60s |
+
+Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`) included on all API responses.
+
+---
+
+## :test_tube: Testing
+
+```bash
+npm test              # Single run (Vitest + jsdom)
+npm run test:watch    # Watch mode
+npm run test:coverage # With coverage report
 ```
 
 ---

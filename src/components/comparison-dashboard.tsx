@@ -204,7 +204,7 @@ export function ComparisonDashboard() {
       const errors = results.filter((r) => r.status === "error").length;
 
       const categoryBreachRates = {} as Record<AttackCategory, { breached: number; total: number }>;
-      for (const cat of ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding", "tool_abuse", "multi_turn", "encoding"] as AttackCategory[]) {
+      for (const cat of ["injection", "jailbreak", "extraction", "bypass", "tool_abuse", "multi_turn", "encoding"] as AttackCategory[]) {
         const catResults = results.filter((r) => r.category === cat);
         categoryBreachRates[cat] = {
           breached: catResults.filter((r) => r.success).length,

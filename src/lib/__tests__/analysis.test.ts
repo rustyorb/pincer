@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { analyzeResponse, errorAnalysis } from "../analysis";
+import { analyzeResponse, errorAnalysis, detectObfuscation } from "../analysis";
 
 // Helpers
 const analyze = (response: string, category = "injection" as const, prompt = "test prompt") =>

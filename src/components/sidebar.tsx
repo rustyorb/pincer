@@ -37,6 +37,9 @@ const ATTACK_CATEGORIES: AttackCategory[] = [
   "jailbreak",
   "extraction",
   "bypass",
+  "tool_abuse",
+  "multi_turn",
+  "encoding",
 ];
 
 export function Sidebar() {
