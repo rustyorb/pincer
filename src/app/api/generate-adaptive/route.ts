@@ -1,12 +1,14 @@
 import { NextRequest } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { AttackCategory, Severity, TargetConfig } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 import type { WeaknessProfile, FollowUpAttack } from "@/lib/adaptive";
 import { CATEGORY_LABELS } from "@/lib/types";
 
 interface GenerateAdaptiveBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   profile: WeaknessProfile;
@@ -104,7 +106,8 @@ function parseAdaptiveAttacks(raw: string): FollowUpAttack[] | null {
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateAdaptiveBody = await request.json();
-    const { endpoint, apiKey, model, provider, profile } = body;
+    const { endpoint, model, provider, profile } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider || !profile) {
       return new Response(

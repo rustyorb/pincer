@@ -11,6 +11,7 @@ import {
 } from "@/lib/chains";
 import type { AttackCategory, Severity } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   Card,
   CardContent,
@@ -177,7 +178,7 @@ export function ChainBuilder() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             endpoint: target.endpoint,
-            apiKey: target.apiKey,
+            ...getTargetKeyFields(target),
             model: target.model,
             provider: target.provider,
             chain,

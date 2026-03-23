@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { AttackCategory, Severity, TargetConfig } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 interface GeneratePayloadBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   category: AttackCategory;
@@ -104,7 +106,8 @@ function parseGeneratedPayload(raw: string): {
 export async function POST(request: NextRequest) {
   try {
     const body: GeneratePayloadBody = await request.json();
-    const { endpoint, apiKey, model, provider, category, context } = body;
+    const { endpoint, model, provider, category, context } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider || !category) {
       return new Response(

@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { TargetConfig } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { endpoint, apiKey, model, provider } = body as {
+    const body = await request.json() as {
       endpoint: string;
-      apiKey: string;
+      apiKey?: string;
+      apiKeyId?: string;
       model: string;
       provider: TargetConfig["provider"];
     };
+    const { endpoint, model, provider } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider) {
       return NextResponse.json(

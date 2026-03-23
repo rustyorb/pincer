@@ -80,6 +80,19 @@ Auth is **opt-in** via environment variables. When `PINCER_USERNAME` and `PINCER
 | `src/app/api/auth/logout/route.ts` | POST — clears session cookie |
 | `src/app/api/auth/status/route.ts` | GET — returns auth state (enabled, authenticated, username) |
 
+### API Key Vault
+
+API keys are stored server-side in an encrypted in-memory vault (AES-256-GCM), not in localStorage. Client-side only stores an opaque `apiKeyId` and a masked `apiKeyLabel` (e.g., "sk-...abc"). Keys are encrypted with `PINCER_KEY_SECRET` (falls back to `PINCER_SESSION_SECRET` / `PINCER_PASSWORD`). On server restart, the vault is empty — users re-enter keys.
+
+| Module | Purpose |
+|---|---|
+| `src/lib/key-vault.ts` | AES-256-GCM encrypted storage, key CRUD, `resolveApiKey()` for backward compat |
+| `src/lib/resolve-key.ts` | Shared helper for API routes — resolves `apiKeyId` or legacy `apiKey` |
+| `src/lib/target-utils.ts` | Client-side helper — `getTargetKeyFields(target)` for API request bodies |
+| `src/app/api/keys/route.ts` | POST (store key → keyId), DELETE (remove), GET (check existence) |
+
+All API routes accept both `apiKeyId` (vault reference) and `apiKey` (plaintext, backward compat). The store's `partialize` strips plaintext `apiKey` before persisting to localStorage.
+
 ### Rate Limiting
 
 All API routes are rate-limited via in-memory sliding window (enforced in `src/middleware.ts`). Always active — no configuration needed. Resets on server restart.

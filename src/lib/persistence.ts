@@ -237,3 +237,18 @@ export function mergeSession(
 export function sessionContainsApiKeys(session: RedPincerSession): boolean {
   return session.targets.some((t) => t.apiKey && t.apiKey.length > 0);
 }
+
+/**
+ * Strip sensitive data from session for safe export.
+ * Removes plaintext apiKey, keeps only apiKeyLabel for reference.
+ */
+export function sanitizeSessionForExport(session: RedPincerSession): RedPincerSession {
+  return {
+    ...session,
+    targets: session.targets.map((t) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { apiKey: _key, apiKeyId: _id, ...safe } = t;
+      return safe as typeof t;
+    }),
+  };
+}

@@ -108,7 +108,12 @@ export const useStore = create<AppState>()(
     {
       name: "redpincer-state",
       partialize: (state) => ({
-        targets: state.targets,
+        // Strip plaintext apiKey from persisted targets — only persist apiKeyId + apiKeyLabel
+        targets: state.targets.map((t) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { apiKey: _key, ...safe } = t;
+          return safe;
+        }),
         activeTargetId: state.activeTargetId,
         selectedCategories: state.selectedCategories,
         runs: state.runs,

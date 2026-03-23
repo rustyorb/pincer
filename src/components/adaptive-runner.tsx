@@ -18,6 +18,7 @@ import {
 import type { AttackResult, AttackRun, AttackPayload } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -77,7 +78,7 @@ export function AdaptiveRunner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           profile,
@@ -139,7 +140,7 @@ export function AdaptiveRunner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           rawPayloads,

@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { AttackCategory, TargetConfig } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 interface SummarizeRunBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   targetName: string;
@@ -26,10 +28,11 @@ export async function POST(request: NextRequest) {
   try {
     const body: SummarizeRunBody = await request.json();
     const {
-      endpoint, apiKey, model, provider,
+      endpoint, model, provider,
       targetName, totalAttacks, successRate, categories,
       severityCounts, topFindings, overallRisk,
     } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider) {
       return new Response(

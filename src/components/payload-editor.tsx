@@ -12,6 +12,7 @@ import type {
   ModelTarget,
 } from "@/lib/types";
 import { CATEGORY_LABELS, MODEL_TARGET_LABELS } from "@/lib/types";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   generateVariantsForCategory,
   type PayloadVariant,
@@ -540,7 +541,7 @@ export function PayloadEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           category: form.category,
@@ -618,7 +619,7 @@ export function PayloadEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           payloadIds: [payload.id],

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   Shield,
   Target,
@@ -104,7 +105,7 @@ export function Sidebar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           categories: selectedCategories,

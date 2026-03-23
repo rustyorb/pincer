@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   Shield,
   ChevronDown,
@@ -140,7 +141,7 @@ export function AttackModules() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           rawPayloads: payloadsToRun,

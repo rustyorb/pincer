@@ -18,6 +18,7 @@ import { CATEGORY_LABELS } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -124,7 +125,7 @@ export function ComparisonDashboard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             endpoint: target.endpoint,
-            apiKey: target.apiKey,
+            ...getTargetKeyFields(target),
             model: target.model,
             provider: target.provider,
             categories: selectedCategories,

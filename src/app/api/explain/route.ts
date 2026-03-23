@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { AttackCategory, AnalysisClassification, TargetConfig } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 interface ExplainBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   prompt: string;
@@ -25,7 +27,8 @@ const CLASSIFICATION_LABELS: Record<AnalysisClassification, string> = {
 export async function POST(request: NextRequest) {
   try {
     const body: ExplainBody = await request.json();
-    const { endpoint, apiKey, model, provider, prompt, response, classification, category } = body;
+    const { endpoint, model, provider, prompt, response, classification, category } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider || !prompt || !response) {
       return new Response(

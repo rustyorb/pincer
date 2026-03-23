@@ -2,11 +2,13 @@ import { NextRequest } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { TargetConfig } from "@/lib/types";
 import type { AttackChain, ChainStep, ChainStepResult } from "@/lib/chains";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 import { transformResponse, resolveTemplate } from "@/lib/chains";
 
 interface ChainRequestBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   chain: AttackChain;
@@ -19,7 +21,8 @@ function sleep(ms: number): Promise<void> {
 export async function POST(request: NextRequest) {
   try {
     const body: ChainRequestBody = await request.json();
-    const { endpoint, apiKey, model, provider, chain } = body;
+    const { endpoint, model, provider, chain } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider) {
       return new Response(

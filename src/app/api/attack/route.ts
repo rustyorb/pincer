@@ -8,10 +8,12 @@ import type {
   AttackCategory,
   TargetConfig,
 } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 interface AttackRequestBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   categories?: AttackCategory[];
@@ -35,7 +37,8 @@ function resolvePayloads(body: AttackRequestBody): AttackPayload[] {
 export async function POST(request: NextRequest) {
   try {
     const body: AttackRequestBody = await request.json();
-    const { endpoint, apiKey, model, provider, payloadIds } = body;
+    const { endpoint, model, provider } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider) {
       return new Response(

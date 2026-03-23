@@ -24,7 +24,12 @@ export interface TargetConfig {
   id: string;
   name: string;
   endpoint: string;
-  apiKey: string;
+  /** @deprecated Use apiKeyId instead. Kept for backward compatibility during migration. */
+  apiKey?: string;
+  /** Opaque reference to a key stored in the server-side vault. */
+  apiKeyId?: string;
+  /** Masked display label (e.g., "sk-...abc") — safe to persist client-side. */
+  apiKeyLabel?: string;
   model: string;
   provider: "openai" | "anthropic" | "openrouter" | "custom";
   connected: boolean;

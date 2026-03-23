@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   GitBranch,
   Save,
@@ -212,7 +213,7 @@ export function RegressionRunner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: target.endpoint,
-          apiKey: target.apiKey,
+          ...getTargetKeyFields(target),
           model: target.model,
           provider: target.provider,
           payloadIds,

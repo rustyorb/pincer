@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { sendLLMRequest } from "@/lib/llm-client";
 import type { AttackCategory, TargetConfig } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 interface MutatePayloadBody {
   endpoint: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyId?: string;
   model: string;
   provider: TargetConfig["provider"];
   originalPrompt: string;
@@ -16,7 +18,8 @@ interface MutatePayloadBody {
 export async function POST(request: NextRequest) {
   try {
     const body: MutatePayloadBody = await request.json();
-    const { endpoint, apiKey, model, provider, originalPrompt, category, blockReason } = body;
+    const { endpoint, model, provider, originalPrompt, category, blockReason } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!endpoint || !apiKey || !model || !provider || !originalPrompt || !category) {
       return new Response(

@@ -77,16 +77,22 @@ export function TargetConfig() {
   };
 
   const fetchModels = async () => {
-    if (!apiKey.trim()) return;
+    // Need either a typed key or an existing vault key
+    const editTarget = editingId ? targets.find(t => t.id === editingId) : null;
+    const hasVaultKey = editTarget?.apiKeyId;
+    if (!apiKey.trim() && !hasVaultKey) return;
 
     setIsFetchingModels(true);
     setFetchError(null);
 
     try {
+      const keyFields = apiKey.trim()
+        ? { apiKey }
+        : hasVaultKey ? { apiKeyId: editTarget.apiKeyId } : { apiKey };
       const res = await fetch("/api/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint, apiKey, provider }),
+        body: JSON.stringify({ endpoint, ...keyFields, provider }),
       });
 
       const data = await res.json();
@@ -115,10 +121,15 @@ export function TargetConfig() {
     setTestResult(null);
 
     try {
+      const editTarget = editingId ? targets.find(t => t.id === editingId) : null;
+      const hasVaultKey = editTarget?.apiKeyId;
+      const keyFields = apiKey.trim()
+        ? { apiKey }
+        : hasVaultKey ? { apiKeyId: editTarget.apiKeyId } : { apiKey };
       const res = await fetch("/api/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint, apiKey, model, provider }),
+        body: JSON.stringify({ endpoint, ...keyFields, model, provider }),
       });
 
       const data = await res.json();
@@ -143,15 +154,41 @@ export function TargetConfig() {
     setModelInputMode("select");
   };
 
-  const saveTarget = () => {
-    if (!name.trim() || !endpoint.trim() || !apiKey.trim() || !model.trim())
-      return;
+  const saveTarget = async () => {
+    if (!name.trim() || !endpoint.trim() || !model.trim()) return;
+    if (!apiKey.trim() && !hasExistingVaultKey) return;
+
+    // Store key in server-side vault (only if a new key was entered)
+    let apiKeyId: string | undefined;
+    let apiKeyLabel: string | undefined;
+    if (apiKey.trim()) {
+      try {
+        const res = await fetch("/api/keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: apiKey.trim() }),
+        });
+        const data = await res.json();
+        if (data.keyId) {
+          apiKeyId = data.keyId;
+          apiKeyLabel = data.label;
+        }
+      } catch {
+        // Vault unavailable — fall back to legacy storage (apiKey in memory only)
+      }
+    } else if (hasExistingVaultKey) {
+      // Keep existing vault key
+      apiKeyId = editTarget!.apiKeyId;
+      apiKeyLabel = editTarget!.apiKeyLabel;
+    }
 
     if (editingId) {
       updateTarget(editingId, {
         name: name.trim(),
         endpoint: endpoint.trim(),
-        apiKey: apiKey.trim(),
+        apiKeyId,
+        apiKeyLabel,
+        apiKey: apiKeyId ? undefined : apiKey.trim(), // only store plaintext as fallback
         model: model.trim(),
         provider,
         connected: testResult?.success ?? false,
@@ -162,7 +199,9 @@ export function TargetConfig() {
         id: generateId(),
         name: name.trim(),
         endpoint: endpoint.trim(),
-        apiKey: apiKey.trim(),
+        apiKeyId,
+        apiKeyLabel,
+        apiKey: apiKeyId ? undefined : apiKey.trim(),
         model: model.trim(),
         provider,
         connected: testResult?.success ?? false,
@@ -179,7 +218,7 @@ export function TargetConfig() {
     setName(target.name);
     setProvider(target.provider);
     setEndpoint(target.endpoint);
-    setApiKey(target.apiKey);
+    setApiKey(target.apiKey || ""); // Will be empty if vault-stored
     setModel(target.model);
     setTestResult(null);
     setFetchedModels([]);
@@ -191,7 +230,9 @@ export function TargetConfig() {
     resetForm();
   };
 
-  const canSave = name.trim() && endpoint.trim() && apiKey.trim() && model.trim();
+  const editTarget = editingId ? targets.find(t => t.id === editingId) : null;
+  const hasExistingVaultKey = !!(editTarget?.apiKeyId);
+  const canSave = name.trim() && endpoint.trim() && (apiKey.trim() || hasExistingVaultKey) && model.trim();
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -260,14 +301,32 @@ export function TargetConfig() {
           {/* API Key */}
           <div className="space-y-2">
             <Label htmlFor="api-key">API Key</Label>
-            <Input
-              id="api-key"
-              type="password"
-              placeholder={PROVIDER_PRESETS[provider].placeholder}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="bg-background font-mono text-sm"
-            />
+            {editingId && targets.find(t => t.id === editingId)?.apiKeyId && !apiKey.trim() ? (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-muted-foreground">
+                  🔒 {targets.find(t => t.id === editingId)?.apiKeyLabel || "Stored securely"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setApiKey(" ")} // triggers re-entry mode
+                  className="h-9 px-3 text-xs"
+                >
+                  Change
+                </Button>
+              </div>
+            ) : (
+              <Input
+                id="api-key"
+                type="password"
+                placeholder={editingId && targets.find(t => t.id === editingId)?.apiKeyId
+                  ? "Enter new key to replace stored key"
+                  : PROVIDER_PRESETS[provider].placeholder}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="bg-background font-mono text-sm"
+              />
+            )}
           </div>
 
           {/* Model */}

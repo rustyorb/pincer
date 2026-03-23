@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { TargetConfig } from "@/lib/types";
+import { resolveKeyFromBody } from "@/lib/resolve-key";
 
 const ANTHROPIC_MODELS = [
   "claude-opus-4-20250918",
@@ -11,12 +12,14 @@ const ANTHROPIC_MODELS = [
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { endpoint, apiKey, provider } = body as {
+    const body = await request.json() as {
       endpoint: string;
-      apiKey: string;
+      apiKey?: string;
+      apiKeyId?: string;
       provider: TargetConfig["provider"];
     };
+    const { endpoint, provider } = body;
+    const apiKey = resolveKeyFromBody(body);
 
     if (!apiKey || !provider) {
       return NextResponse.json(
