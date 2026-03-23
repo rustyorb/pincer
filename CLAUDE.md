@@ -76,6 +76,22 @@ Auth is **opt-in** via environment variables. When `PINCER_USERNAME` and `PINCER
 | `src/app/api/auth/logout/route.ts` | POST — clears session cookie |
 | `src/app/api/auth/status/route.ts` | GET — returns auth state (enabled, authenticated, username) |
 
+### Rate Limiting
+
+All API routes are rate-limited via in-memory sliding window (enforced in `src/middleware.ts`). Always active — no configuration needed. Resets on server restart.
+
+| Tier | Routes | Limit |
+|---|---|---|
+| `auth` | `/api/auth/*` | 5 req / 60s (brute-force protection) |
+| `attack` | `/api/attack`, `/api/chain`, `/api/generate-adaptive` | 10 req / 60s |
+| `api` | All other `/api/*` | 30 req / 60s |
+
+Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`) are included on all API responses. 429 responses include `retryAfter` in the JSON body.
+
+| Module | Purpose |
+|---|---|
+| `src/lib/rate-limit.ts` | Rate limiter class, tier config, route-to-tier mapping, client key extraction, header helpers |
+
 ## Conventions
 
 - Path alias: `@/*` maps to `./src/*`
