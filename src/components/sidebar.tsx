@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { generateId } from "@/lib/uuid";
 
 import { useStore } from "@/lib/store";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   Shield,
@@ -45,6 +46,52 @@ const ATTACK_CATEGORIES: AttackCategory[] = [
   "encoding",
 ];
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}m ${secs}s`;
+}
+
+function RunProgressDisplay({
+  progress,
+}: {
+  progress: { total: number; completed: number; startTime: number };
+}) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { total, completed, startTime } = progress;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const elapsed = now - startTime;
+  const avgPerPayload = completed > 0 ? elapsed / completed : 0;
+  const remaining = completed > 0 ? Math.round(avgPerPayload * (total - completed)) : 0;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-mono font-semibold text-foreground">
+          {completed}/{total}
+        </span>
+        <span className="text-muted-foreground">{percent}%</span>
+      </div>
+      <Progress value={percent} className="h-2 [&>[data-slot=progress-indicator]]:bg-redpincer" />
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>{formatDuration(elapsed)} elapsed</span>
+        {completed > 0 && completed < total && (
+          <span>~{formatDuration(remaining)} left</span>
+        )}
+        {completed === total && total > 0 && <span>Done!</span>}
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const {
     targets,
@@ -63,6 +110,9 @@ export function Sidebar() {
     setActiveRun,
     concurrency,
     setConcurrency,
+    runProgress,
+    setRunProgress,
+    incrementRunProgress,
   } = useStore();
 
   const { authEnabled, username, logout } = useAuth();
@@ -99,6 +149,7 @@ export function Sidebar() {
     addRun(run);
     setActiveRun(runId);
     setIsRunning(true);
+    setRunProgress({ total: 0, completed: 0, startTime: Date.now() });
     setView("results");
 
     let wasCancelled = false;
@@ -131,8 +182,13 @@ export function Sidebar() {
         for (const line of lines) {
           if (line.trim()) {
             try {
-              const result = JSON.parse(line);
-              addResult(runId, result);
+              const parsed = JSON.parse(line);
+              if (parsed.type === "meta" && typeof parsed.totalPayloads === "number") {
+                setRunProgress({ total: parsed.totalPayloads, completed: 0, startTime: Date.now() });
+              } else {
+                addResult(runId, parsed);
+                incrementRunProgress();
+              }
             } catch {
               // skip malformed lines
             }
@@ -152,6 +208,7 @@ export function Sidebar() {
         completeRun(runId);
       }
       setIsRunning(false);
+      setRunProgress(null);
       abortRef.current = null;
     }
   };
@@ -420,6 +477,10 @@ export function Sidebar() {
             </button>
           </div>
         </div>
+
+        {isRunning && runProgress && runProgress.total > 0 && (
+          <RunProgressDisplay progress={runProgress} />
+        )}
 
         {isRunning ? (
           <Button

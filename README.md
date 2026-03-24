@@ -45,6 +45,7 @@
 - **Attack Chaining** with template variables
 - **AI-Powered Payload Generation** via target LLM
 - **Concurrent Execution** — run 1-10 payloads in parallel
+- **Live Progress Tracking** — X/N completed, progress bar, elapsed time, ETA
 - **Stop/Cancel** running attacks instantly
 
 </td>
@@ -160,7 +161,7 @@ graph LR
 1. **Configure a Target** — Add an LLM endpoint with provider, API key, and model (auto-fetched)
 2. **Select Attack Categories** — Check the categories to test
 3. **Set Concurrency** — Adjust parallel requests (1-10) with the sidebar concurrency control
-4. **Run Attack** — Hit RUN to stream attacks; hit STOP to cancel anytime
+4. **Run Attack** — Hit RUN to stream attacks; watch live progress (X/N, ETA); hit STOP to cancel anytime
 5. **Review Results** — Analyze with heuristic classification, severity scores, and leaked data highlights
 6. **Generate Report** — Export findings as Markdown, JSON, CSV, or SARIF
 

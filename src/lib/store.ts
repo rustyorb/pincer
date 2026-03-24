@@ -37,6 +37,11 @@ interface AppState {
   concurrency: number;
   setConcurrency: (n: number) => void;
 
+  // Run progress (not persisted)
+  runProgress: { total: number; completed: number; startTime: number } | null;
+  setRunProgress: (progress: { total: number; completed: number; startTime: number } | null) => void;
+  incrementRunProgress: () => void;
+
   // UI state (not persisted)
   view: ViewName;
   setView: (view: ViewName) => void;
@@ -113,6 +118,16 @@ export const useStore = create<AppState>()(
       // Run settings
       concurrency: 1,
       setConcurrency: (n) => set({ concurrency: Math.max(1, Math.min(10, n)) }),
+
+      // Run progress
+      runProgress: null,
+      setRunProgress: (progress) => set({ runProgress: progress }),
+      incrementRunProgress: () =>
+        set((state) => ({
+          runProgress: state.runProgress
+            ? { ...state.runProgress, completed: state.runProgress.completed + 1 }
+            : null,
+        })),
 
       // UI state
       view: "config",

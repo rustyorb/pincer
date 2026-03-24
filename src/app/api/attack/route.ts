@@ -131,6 +131,11 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         const encoder = new TextEncoder();
 
+        // Send meta line first so clients know total payload count
+        controller.enqueue(
+          encoder.encode(JSON.stringify({ type: "meta", totalPayloads: payloads.length }) + "\n")
+        );
+
         if (concurrency === 1) {
           // Sequential mode — original behavior, preserves ordering
           for (const payload of payloads) {
