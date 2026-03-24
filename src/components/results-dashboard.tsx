@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useStore } from "@/lib/store";
 import type { AttackCategory, Severity, AttackResult, AnalysisClassification } from "@/lib/types";
 import { CATEGORY_LABELS, SEVERITY_ORDER } from "@/lib/types";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -32,12 +33,19 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Shield,
   Target,
   Sparkles,
   Wand2,
   Copy,
   BookmarkPlus,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X,
 } from "lucide-react";
 
 const ALL_CATEGORIES: AttackCategory[] = [
@@ -51,6 +59,32 @@ const ALL_CATEGORIES: AttackCategory[] = [
 ];
 
 const ALL_SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
+
+const ALL_CLASSIFICATIONS: AnalysisClassification[] = [
+  "full_jailbreak",
+  "information_leakage",
+  "partial_compliance",
+  "refusal",
+  "error",
+];
+
+type SortField = "name" | "severity" | "classification" | "duration" | "score";
+type SortDirection = "asc" | "desc";
+
+const SEVERITY_RANK: Record<Severity, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+const CLASSIFICATION_RANK: Record<AnalysisClassification, number> = {
+  full_jailbreak: 5,
+  information_leakage: 4,
+  partial_compliance: 3,
+  refusal: 2,
+  error: 1,
+};
 
 function severityBadgeClass(severity: Severity): string {
   switch (severity) {
@@ -142,9 +176,14 @@ export function ResultsDashboard() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterClassification, setFilterClassification] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [expandedResults, setExpandedResults] = useState<Set<string>>(
     new Set()
   );
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [explaining, setExplaining] = useState<Record<string, boolean>>({});
@@ -243,16 +282,54 @@ export function ResultsDashboard() {
   const results = activeRun?.results ?? [];
 
   const filteredResults = useMemo(() => {
-    return results.filter((r) => {
+    const query = searchQuery.toLowerCase().trim();
+    let filtered = results.filter((r) => {
       if (filterCategory !== "all" && r.category !== filterCategory)
         return false;
       if (filterSeverity !== "all" && r.severity !== filterSeverity)
         return false;
       if (filterStatus === "success" && !r.success) return false;
       if (filterStatus === "fail" && r.success) return false;
+      if (filterClassification !== "all" && r.analysis?.classification !== filterClassification)
+        return false;
+      if (query) {
+        const matchesName = r.payloadName.toLowerCase().includes(query);
+        const matchesId = r.payloadId?.toLowerCase().includes(query);
+        const matchesResponse = r.response?.toLowerCase().includes(query);
+        const matchesPrompt = r.prompt?.toLowerCase().includes(query);
+        if (!matchesName && !matchesId && !matchesResponse && !matchesPrompt)
+          return false;
+      }
       return true;
     });
-  }, [results, filterCategory, filterSeverity, filterStatus]);
+
+    if (sortField) {
+      const dir = sortDirection === "asc" ? 1 : -1;
+      filtered = [...filtered].sort((a, b) => {
+        switch (sortField) {
+          case "name":
+            return dir * a.payloadName.localeCompare(b.payloadName);
+          case "severity":
+            return dir * ((SEVERITY_RANK[a.severity] ?? 0) - (SEVERITY_RANK[b.severity] ?? 0));
+          case "classification":
+            return dir * (
+              (CLASSIFICATION_RANK[a.analysis?.classification ?? "error"] ?? 0) -
+              (CLASSIFICATION_RANK[b.analysis?.classification ?? "error"] ?? 0)
+            );
+          case "duration":
+            return dir * ((a.durationMs ?? 0) - (b.durationMs ?? 0));
+          case "score":
+            return dir * (
+              (a.analysis?.severityScore ?? 0) - (b.analysis?.severityScore ?? 0)
+            );
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return filtered;
+  }, [results, filterCategory, filterSeverity, filterStatus, filterClassification, searchQuery, sortField, sortDirection]);
 
   const totalAttacks = results.length;
   const successfulAttacks = results.filter((r) => r.success).length;
@@ -274,6 +351,53 @@ export function ResultsDashboard() {
       return next;
     });
   };
+
+  const toggleSort = useCallback((field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === "desc") {
+        setSortDirection("asc");
+      } else {
+        setSortField(null);
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  }, [sortField, sortDirection]);
+
+  const expandAll = useCallback(() => {
+    setExpandedResults(new Set(filteredResults.map((r) => r.id)));
+  }, [filteredResults]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedResults(new Set());
+  }, []);
+
+  const hasActiveFilters =
+    filterCategory !== "all" ||
+    filterSeverity !== "all" ||
+    filterStatus !== "all" ||
+    filterClassification !== "all" ||
+    searchQuery !== "" ||
+    sortField !== null;
+
+  const clearAllFilters = useCallback(() => {
+    setFilterCategory("all");
+    setFilterSeverity("all");
+    setFilterStatus("all");
+    setFilterClassification("all");
+    setSearchQuery("");
+    setSortField(null);
+  }, []);
+
+  function sortIcon(field: SortField) {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3" />;
+    return sortDirection === "desc" ? (
+      <ArrowDown className="h-3 w-3" />
+    ) : (
+      <ArrowUp className="h-3 w-3" />
+    );
+  }
 
   // Per-category stats
   const categoryStats = ALL_CATEGORIES.map((cat) => {
@@ -443,55 +567,149 @@ export function ResultsDashboard() {
 
       <Separator />
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Filter:
-        </span>
+      {/* Search & Filters */}
+      <Card className="border-border bg-card">
+        <CardContent className="space-y-3 p-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search payloads, prompts, responses…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 bg-background pl-9 pr-9 text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="h-8 w-[160px] bg-background text-xs">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {ALL_CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {CATEGORY_LABELS[cat]}
-              </SelectItem>
+          {/* Filter Row */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="h-8 w-[160px] bg-background text-xs">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {ALL_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {CATEGORY_LABELS[cat]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+              <SelectTrigger className="h-8 w-[140px] bg-background text-xs">
+                <SelectValue placeholder="Severity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Severities</SelectItem>
+                {ALL_SEVERITIES.map((sev) => (
+                  <SelectItem key={sev} value={sev}>
+                    {sev.charAt(0).toUpperCase() + sev.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterClassification} onValueChange={setFilterClassification}>
+              <SelectTrigger className="h-8 w-[180px] bg-background text-xs">
+                <SelectValue placeholder="Classification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classifications</SelectItem>
+                {ALL_CLASSIFICATIONS.map((cls) => (
+                  <SelectItem key={cls} value={cls}>
+                    {classificationLabel(cls)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="h-8 w-[140px] bg-background text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="success">Breached</SelectItem>
+                <SelectItem value="fail">Blocked</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {hasActiveFilters && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={clearAllFilters}
+              >
+                <X className="h-3 w-3" />
+                Clear all
+              </Button>
+            )}
+          </div>
+
+          {/* Sort & Actions Row */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Sort:
+            </span>
+            {(
+              [
+                ["name", "Name"],
+                ["severity", "Severity"],
+                ["classification", "Classification"],
+                ["score", "Score"],
+                ["duration", "Duration"],
+              ] as [SortField, string][]
+            ).map(([field, label]) => (
+              <Button
+                key={field}
+                size="sm"
+                variant={sortField === field ? "secondary" : "ghost"}
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={() => toggleSort(field)}
+              >
+                {sortIcon(field)}
+                {label}
+              </Button>
             ))}
-          </SelectContent>
-        </Select>
 
-        <Select value={filterSeverity} onValueChange={setFilterSeverity}>
-          <SelectTrigger className="h-8 w-[140px] bg-background text-xs">
-            <SelectValue placeholder="Severity" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Severities</SelectItem>
-            {ALL_SEVERITIES.map((sev) => (
-              <SelectItem key={sev} value={sev}>
-                {sev.charAt(0).toUpperCase() + sev.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="h-8 w-[140px] bg-background text-xs">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="success">Breached</SelectItem>
-            <SelectItem value="fail">Blocked</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <span className="ml-auto text-xs text-muted-foreground">
-          Showing {filteredResults.length} of {results.length} results
-        </span>
-      </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                onClick={expandAll}
+              >
+                <ChevronsUpDown className="h-3 w-3" />
+                Expand all
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                onClick={collapseAll}
+              >
+                <ChevronsDownUp className="h-3 w-3" />
+                Collapse
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {filteredResults.length} / {results.length}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Results List */}
       <ScrollArea className="h-[500px]">
