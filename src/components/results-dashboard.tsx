@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useStore } from "@/lib/store";
-import type { AttackCategory, Severity, AttackResult, AnalysisClassification } from "@/lib/types";
+import type { AttackCategory, Severity, AttackResult, AttackRun, AnalysisClassification } from "@/lib/types";
 import { CATEGORY_LABELS, SEVERITY_ORDER } from "@/lib/types";
 import { getTargetKeyFields } from "@/lib/target-utils";
+import { generateId } from "@/lib/uuid";
 import {
   Card,
   CardContent,
@@ -47,6 +48,8 @@ import {
   ArrowUp,
   ArrowDown,
   X,
+  RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 
 const ALL_CATEGORIES: AttackCategory[] = [
@@ -170,7 +173,22 @@ function statusIcon(result: AttackResult) {
 }
 
 export function ResultsDashboard() {
-  const { runs, activeRunId, targets, redTeamConfig } = useStore();
+  const {
+    runs,
+    activeRunId,
+    targets,
+    redTeamConfig,
+    addRun,
+    addResult,
+    completeRun,
+    cancelRun,
+    setActiveRun,
+    isRunning,
+    setIsRunning,
+    setRunProgress,
+    incrementRunProgress,
+    concurrency,
+  } = useStore();
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0];
   const activeTarget = targets.find((t) => t.id === activeRun?.targetId);
 
@@ -192,6 +210,196 @@ export function ResultsDashboard() {
     Record<string, { mutatedPrompt: string; technique: string }>
   >({});
   const [mutating, setMutating] = useState<Record<string, boolean>>({});
+  const [retrying, setRetrying] = useState(false);
+  const retryAbortRef = useRef<AbortController | null>(null);
+
+  // Count error results (network errors, timeouts, API failures)
+  const errorResults = useMemo(
+    () => activeRun?.results.filter((r) => r.status === "error") ?? [],
+    [activeRun?.results]
+  );
+
+  const retryFailedPayloads = useCallback(
+    async (mode: "errors" | "all_failed") => {
+      if (!activeTarget || !activeRun || retrying || isRunning) return;
+
+      const toRetry =
+        mode === "errors"
+          ? errorResults
+          : activeRun.results.filter(
+              (r) => r.status === "error" || r.status === "fail"
+            );
+
+      if (toRetry.length === 0) return;
+
+      // Deduplicate by payloadId (in case same payload errored multiple times)
+      const uniquePayloadIds = [...new Set(toRetry.map((r) => r.payloadId))];
+      const categories = [
+        ...new Set(toRetry.map((r) => r.category)),
+      ] as AttackCategory[];
+
+      const controller = new AbortController();
+      retryAbortRef.current = controller;
+
+      const runId = generateId();
+      const run: AttackRun = {
+        id: runId,
+        targetId: activeTarget.id,
+        targetName: activeTarget.name,
+        categories,
+        results: [],
+        startTime: Date.now(),
+        status: "running",
+      };
+
+      addRun(run);
+      setActiveRun(runId);
+      setRetrying(true);
+      setIsRunning(true);
+      setRunProgress({
+        total: uniquePayloadIds.length,
+        completed: 0,
+        startTime: Date.now(),
+      });
+
+      try {
+        const res = await fetch("/api/attack", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: activeTarget.endpoint,
+            ...getTargetKeyFields(activeTarget),
+            model: activeTarget.model,
+            provider: activeTarget.provider,
+            payloadIds: uniquePayloadIds,
+            concurrency,
+          }),
+          signal: controller.signal,
+        });
+
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const parsed = JSON.parse(line);
+                if (
+                  parsed.type === "meta" &&
+                  typeof parsed.totalPayloads === "number"
+                ) {
+                  setRunProgress({
+                    total: parsed.totalPayloads,
+                    completed: 0,
+                    startTime: Date.now(),
+                  });
+                } else {
+                  addResult(runId, parsed);
+                  incrementRunProgress();
+                }
+              } catch {
+                // skip malformed lines
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          cancelRun(runId);
+          setRetrying(false);
+          setIsRunning(false);
+          setRunProgress(null);
+          retryAbortRef.current = null;
+          return;
+        }
+        console.error("Retry run failed:", err);
+      }
+
+      completeRun(runId);
+      setRetrying(false);
+      setIsRunning(false);
+      setRunProgress(null);
+      retryAbortRef.current = null;
+    },
+    [
+      activeTarget,
+      activeRun,
+      retrying,
+      isRunning,
+      errorResults,
+      concurrency,
+      addRun,
+      addResult,
+      completeRun,
+      cancelRun,
+      setActiveRun,
+      setIsRunning,
+      setRunProgress,
+      incrementRunProgress,
+    ]
+  );
+
+  // Single-payload retry — reruns one specific payload within the current run
+  const [retryingSingle, setRetryingSingle] = useState<Record<string, boolean>>({});
+
+  const retrySinglePayload = useCallback(
+    async (result: AttackResult) => {
+      if (!activeTarget || !activeRun || isRunning || retryingSingle[result.id]) return;
+
+      setRetryingSingle((prev) => ({ ...prev, [result.id]: true }));
+
+      try {
+        const res = await fetch("/api/attack", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            endpoint: activeTarget.endpoint,
+            ...getTargetKeyFields(activeTarget),
+            model: activeTarget.model,
+            provider: activeTarget.provider,
+            payloadIds: [result.payloadId],
+            concurrency: 1,
+          }),
+        });
+
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.type !== "meta") {
+                  addResult(activeRun.id, parsed);
+                }
+              } catch {
+                // skip malformed
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Single retry failed:", err);
+      } finally {
+        setRetryingSingle((prev) => ({ ...prev, [result.id]: false }));
+      }
+    },
+    [activeTarget, activeRun, isRunning, retryingSingle, addResult]
+  );
 
   const explainBreach = useCallback(
     async (result: AttackResult) => {
@@ -432,25 +640,71 @@ export function ResultsDashboard() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div>
-        <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-          <BarChart3 className="h-6 w-6 text-redpincer" />
-          Results Dashboard
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Target: <span className="text-foreground">{activeRun.targetName}</span>{" "}
-          &middot; Status:{" "}
-          <span
-            className={
-              activeRun.status === "running" ? "text-warning" : "text-success"
-            }
-          >
-            {activeRun.status}
-          </span>
-          {activeRun.status === "running" && (
-            <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />
-          )}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-bold text-foreground">
+            <BarChart3 className="h-6 w-6 text-redpincer" />
+            Results Dashboard
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Target: <span className="text-foreground">{activeRun.targetName}</span>{" "}
+            &middot; Status:{" "}
+            <span
+              className={
+                activeRun.status === "running" ? "text-warning" : "text-success"
+              }
+            >
+              {activeRun.status}
+            </span>
+            {activeRun.status === "running" && (
+              <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />
+            )}
+          </p>
+        </div>
+
+        {/* Retry buttons — shown when run is complete and has failures */}
+        {activeRun.status !== "running" && !isRunning && (
+          <div className="flex shrink-0 items-center gap-2">
+            {errorResults.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => retryFailedPayloads("errors")}
+                disabled={retrying}
+                className="border-warning/30 text-warning hover:bg-warning/10"
+              >
+                {retrying ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Retry Errors ({errorResults.length})
+              </Button>
+            )}
+            {results.some((r) => !r.success && r.status !== "running") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => retryFailedPayloads("all_failed")}
+                disabled={retrying}
+                className="border-muted-foreground/30 text-muted-foreground hover:bg-muted/30"
+              >
+                {retrying ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Retry All Failed (
+                {
+                  results.filter(
+                    (r) => !r.success && r.status !== "running"
+                  ).length
+                }
+                )
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -896,6 +1150,26 @@ export function ResultsDashboard() {
                             </p>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Per-result retry for errors */}
+                    {result.status === "error" && activeTarget && (
+                      <div className="pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-warning/30 text-warning hover:bg-warning/10 text-xs h-7"
+                          disabled={retryingSingle[result.id] || isRunning}
+                          onClick={() => retrySinglePayload(result)}
+                        >
+                          {retryingSingle[result.id] ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3 w-3" />
+                          )}
+                          {retryingSingle[result.id] ? "Retrying…" : "Retry This Payload"}
+                        </Button>
                       </div>
                     )}
 

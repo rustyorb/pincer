@@ -55,6 +55,7 @@
 ### :bar_chart: Analysis & Reporting
 - **Heuristic Response Classifier** with context-aware analysis
 - **Results Search & Filter** — text search, classification/severity/category/status filters, sortable columns
+- **Retry Failed Payloads** — re-run errored or blocked payloads from any completed run (bulk or per-result)
 - **Vulnerability Heatmap** — visual category x severity matrix
 - **Custom Scoring Rubrics** with weighted grades (A+ to F)
 - **Verbose Pen-Test Reports** with 10 sections + appendices
