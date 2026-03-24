@@ -36,6 +36,7 @@ import {
   downloadFile,
   getExportFilename,
 } from "@/lib/export";
+import { getConfigRequestFields } from "@/lib/target-utils";
 
 function generateReport(run: AttackRun): string {
   // --- Core metrics ---
@@ -683,7 +684,7 @@ The confidence score reflects the analysis engine's certainty in its classificat
 }
 
 export function ReportGenerator() {
-  const { runs, activeRunId, targets } = useStore();
+  const { runs, activeRunId, targets, redTeamConfig } = useStore();
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0];
   const activeTarget = targets.find((t) => t.id === activeRun?.targetId);
   const [showReport, setShowReport] = useState(false);
@@ -739,7 +740,7 @@ export function ReportGenerator() {
   };
 
   const generateAiSummary = useCallback(async () => {
-    if (!activeRun || !activeTarget || generatingSummary) return;
+    if (!activeRun || !redTeamConfig || generatingSummary) return;
     setGeneratingSummary(true);
     try {
       const totalAttacks = activeRun.results.length;
@@ -782,10 +783,7 @@ export function ReportGenerator() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          endpoint: activeTarget.endpoint,
-          ...getTargetKeyFields(activeTarget),
-          model: activeTarget.model,
-          provider: activeTarget.provider,
+          ...getConfigRequestFields(redTeamConfig),
           targetName: activeRun.targetName,
           totalAttacks,
           successRate,
@@ -807,7 +805,7 @@ export function ReportGenerator() {
     } finally {
       setGeneratingSummary(false);
     }
-  }, [activeRun, activeTarget, generatingSummary]);
+  }, [activeRun, redTeamConfig, generatingSummary]);
 
   if (!activeRun) {
     return (
@@ -889,11 +887,12 @@ export function ReportGenerator() {
           Generate Report
         </Button>
 
-        {activeTarget && totalAttacks > 0 && (
+        {totalAttacks > 0 && (
           <Button
             variant="outline"
             onClick={generateAiSummary}
-            disabled={generatingSummary}
+            disabled={generatingSummary || !redTeamConfig}
+            title={!redTeamConfig ? "Configure a Red Team LLM to use AI features" : undefined}
             className="gap-2 border-lobster/40 text-lobster hover:bg-lobster/10"
           >
             {generatingSummary ? (

@@ -113,6 +113,7 @@ export function Sidebar() {
     runProgress,
     setRunProgress,
     incrementRunProgress,
+    redTeamConfig,
   } = useStore();
 
   const { authEnabled, username, logout } = useAuth();
@@ -276,6 +277,24 @@ export function Sidebar() {
                 <Plus className="h-3.5 w-3.5" />
                 New Target
               </Button>
+            </div>
+
+            {/* Red Team LLM indicator */}
+            <div className="mt-2 border-t border-border pt-2">
+              <button
+                onClick={() => setView("config")}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent"
+              >
+                <Brain className="h-3.5 w-3.5 text-lobster" />
+                {redTeamConfig ? (
+                  <>
+                    <span className="truncate text-lobster">{redTeamConfig.model}</span>
+                    <span className={`ml-auto inline-block h-2 w-2 rounded-full ${redTeamConfig.connected ? "bg-success" : "bg-muted-foreground"}`} />
+                  </>
+                ) : (
+                  <span className="text-muted-foreground italic">No red team LLM</span>
+                )}
+              </button>
             </div>
           </div>
 

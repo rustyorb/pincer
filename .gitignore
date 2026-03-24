@@ -58,4 +58,5 @@ start.ps1
 stop.ps1
 .server.pid
 .pincer.pid
+.pincer.port
 .pincer.log

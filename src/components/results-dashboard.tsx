@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getConfigRequestFields } from "@/lib/target-utils";
 import {
   BarChart3,
   AlertTriangle,
@@ -169,7 +170,7 @@ function statusIcon(result: AttackResult) {
 }
 
 export function ResultsDashboard() {
-  const { runs, activeRunId, targets } = useStore();
+  const { runs, activeRunId, targets, redTeamConfig } = useStore();
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0];
   const activeTarget = targets.find((t) => t.id === activeRun?.targetId);
 
@@ -194,17 +195,14 @@ export function ResultsDashboard() {
 
   const explainBreach = useCallback(
     async (result: AttackResult) => {
-      if (!activeTarget || explaining[result.id]) return;
+      if (!redTeamConfig || explaining[result.id]) return;
       setExplaining((prev) => ({ ...prev, [result.id]: true }));
       try {
         const res = await fetch("/api/explain", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            endpoint: activeTarget.endpoint,
-            ...getTargetKeyFields(activeTarget),
-            model: activeTarget.model,
-            provider: activeTarget.provider,
+            ...getConfigRequestFields(redTeamConfig),
             prompt: result.prompt,
             response: result.response,
             classification: result.analysis.classification,
@@ -221,22 +219,19 @@ export function ResultsDashboard() {
         setExplaining((prev) => ({ ...prev, [result.id]: false }));
       }
     },
-    [activeTarget, explaining]
+    [redTeamConfig, explaining]
   );
 
   const mutatePayload = useCallback(
     async (result: AttackResult) => {
-      if (!activeTarget || mutating[result.id]) return;
+      if (!redTeamConfig || mutating[result.id]) return;
       setMutating((prev) => ({ ...prev, [result.id]: true }));
       try {
         const res = await fetch("/api/mutate-payload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            endpoint: activeTarget.endpoint,
-            ...getTargetKeyFields(activeTarget),
-            model: activeTarget.model,
-            provider: activeTarget.provider,
+            ...getConfigRequestFields(redTeamConfig),
             originalPrompt: result.prompt,
             category: result.category,
           }),
@@ -254,7 +249,7 @@ export function ResultsDashboard() {
         setMutating((prev) => ({ ...prev, [result.id]: false }));
       }
     },
-    [activeTarget, mutating]
+    [redTeamConfig, mutating]
   );
 
   const saveMutationToEditor = useCallback(
@@ -879,7 +874,8 @@ export function ResultsDashboard() {
                             size="sm"
                             variant="outline"
                             className="gap-1.5 border-redpincer/30 text-redpincer hover:bg-redpincer/10 text-xs h-7"
-                            disabled={explaining[result.id]}
+                            disabled={explaining[result.id] || !redTeamConfig}
+                            title={!redTeamConfig ? "Configure a Red Team LLM to use AI features" : undefined}
                             onClick={() => explainBreach(result)}
                           >
                             {explaining[result.id] ? (
@@ -911,7 +907,8 @@ export function ResultsDashboard() {
                             size="sm"
                             variant="outline"
                             className="gap-1.5 border-warning/30 text-warning hover:bg-warning/10 text-xs h-7"
-                            disabled={mutating[result.id]}
+                            disabled={mutating[result.id] || !redTeamConfig}
+                            title={!redTeamConfig ? "Configure a Red Team LLM to use AI features" : undefined}
                             onClick={() => mutatePayload(result)}
                           >
                             {mutating[result.id] ? (

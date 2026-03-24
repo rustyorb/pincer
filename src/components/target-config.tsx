@@ -36,12 +36,13 @@ import {
   Pencil,
   X,
   Download,
+  Brain,
 } from "lucide-react";
 
 type Provider = TargetConfig["provider"];
 
 export function TargetConfig() {
-  const { targets, addTarget, removeTarget, updateTarget, setActiveTarget, setView } =
+  const { targets, addTarget, removeTarget, updateTarget, setActiveTarget, setView, redTeamConfig, setRedTeamConfig, updateRedTeamConfig } =
     useStore();
 
   const [name, setName] = useState("");
@@ -64,6 +65,19 @@ export function TargetConfig() {
 
   // Edit mode state
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Red Team LLM form state
+  const [rtProvider, setRtProvider] = useState<Provider>(redTeamConfig?.provider || "openai");
+  const [rtEndpoint, setRtEndpoint] = useState(redTeamConfig?.endpoint || PROVIDER_PRESETS.openai.endpoint);
+  const [rtApiKey, setRtApiKey] = useState("");
+  const [rtModel, setRtModel] = useState(redTeamConfig?.model || "");
+  const [rtTesting, setRtTesting] = useState(false);
+  const [rtTestResult, setRtTestResult] = useState<{ success: boolean; latency?: number; error?: string } | null>(null);
+  const [rtFetchedModels, setRtFetchedModels] = useState<string[]>([]);
+  const [rtFetchingModels, setRtFetchingModels] = useState(false);
+  const [rtFetchError, setRtFetchError] = useState<string | null>(null);
+  const [rtModelInputMode, setRtModelInputMode] = useState<"select" | "manual">("select");
+  const [rtEditing, setRtEditing] = useState(false);
 
   const handleProviderChange = (value: string) => {
     const p = value as Provider;
@@ -233,6 +247,139 @@ export function TargetConfig() {
   const editTarget = editingId ? targets.find(t => t.id === editingId) : null;
   const hasExistingVaultKey = !!(editTarget?.apiKeyId);
   const canSave = name.trim() && endpoint.trim() && (apiKey.trim() || hasExistingVaultKey) && model.trim();
+
+  // Red Team helpers
+  const rtHasVaultKey = !!(redTeamConfig?.apiKeyId);
+  const rtCanSave = rtEndpoint.trim() && (rtApiKey.trim() || rtHasVaultKey) && rtModel.trim();
+
+  const handleRtProviderChange = (value: string) => {
+    const p = value as Provider;
+    setRtProvider(p);
+    setRtEndpoint(PROVIDER_PRESETS[p].endpoint);
+    setRtTestResult(null);
+    setRtFetchedModels([]);
+    setRtFetchError(null);
+    setRtModel("");
+    setRtModelInputMode("select");
+  };
+
+  const fetchRtModels = async () => {
+    if (!rtApiKey.trim() && !rtHasVaultKey) return;
+    setRtFetchingModels(true);
+    setRtFetchError(null);
+    try {
+      const keyFields = rtApiKey.trim()
+        ? { apiKey: rtApiKey }
+        : rtHasVaultKey ? { apiKeyId: redTeamConfig!.apiKeyId } : { apiKey: rtApiKey };
+      const res = await fetch("/api/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: rtEndpoint, ...keyFields, provider: rtProvider }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setRtFetchError(data.error);
+        setRtFetchedModels([]);
+        setRtModelInputMode("manual");
+      } else if (data.models.length === 0) {
+        setRtModelInputMode("manual");
+        setRtFetchedModels([]);
+      } else {
+        setRtFetchedModels(data.models);
+        setRtModelInputMode("select");
+      }
+    } catch {
+      setRtFetchError("Failed to fetch models");
+      setRtModelInputMode("manual");
+    } finally {
+      setRtFetchingModels(false);
+    }
+  };
+
+  const testRtConnection = async () => {
+    setRtTesting(true);
+    setRtTestResult(null);
+    try {
+      const keyFields = rtApiKey.trim()
+        ? { apiKey: rtApiKey }
+        : rtHasVaultKey ? { apiKeyId: redTeamConfig!.apiKeyId } : { apiKey: rtApiKey };
+      const res = await fetch("/api/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: rtEndpoint, ...keyFields, model: rtModel, provider: rtProvider }),
+      });
+      const data = await res.json();
+      setRtTestResult(data);
+    } catch {
+      setRtTestResult({ success: false, error: "Network error" });
+    } finally {
+      setRtTesting(false);
+    }
+  };
+
+  const saveRedTeam = async () => {
+    if (!rtCanSave) return;
+    let apiKeyId: string | undefined;
+    let apiKeyLabel: string | undefined;
+    if (rtApiKey.trim()) {
+      try {
+        const res = await fetch("/api/keys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: rtApiKey.trim() }),
+        });
+        const data = await res.json();
+        if (data.keyId) {
+          apiKeyId = data.keyId;
+          apiKeyLabel = data.label;
+        }
+      } catch {
+        // Vault unavailable — fall back to legacy
+      }
+    } else if (rtHasVaultKey) {
+      apiKeyId = redTeamConfig!.apiKeyId;
+      apiKeyLabel = redTeamConfig!.apiKeyLabel;
+    }
+
+    const config: TargetConfig = {
+      id: redTeamConfig?.id || generateId(),
+      name: "Red Team LLM",
+      endpoint: rtEndpoint.trim(),
+      apiKeyId,
+      apiKeyLabel,
+      apiKey: apiKeyId ? undefined : rtApiKey.trim(),
+      model: rtModel.trim(),
+      provider: rtProvider,
+      connected: rtTestResult?.success ?? false,
+    };
+    setRedTeamConfig(config);
+    setRtEditing(false);
+    setRtApiKey("");
+  };
+
+  const startEditingRedTeam = () => {
+    if (redTeamConfig) {
+      setRtProvider(redTeamConfig.provider);
+      setRtEndpoint(redTeamConfig.endpoint);
+      setRtApiKey("");
+      setRtModel(redTeamConfig.model);
+      setRtTestResult(null);
+      setRtFetchedModels([]);
+      setRtFetchError(null);
+      setRtModelInputMode("manual");
+    }
+    setRtEditing(true);
+  };
+
+  const removeRedTeam = () => {
+    setRedTeamConfig(null);
+    setRtProvider("openai");
+    setRtEndpoint(PROVIDER_PRESETS.openai.endpoint);
+    setRtApiKey("");
+    setRtModel("");
+    setRtTestResult(null);
+    setRtEditing(false);
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -540,6 +687,196 @@ export function TargetConfig() {
           </CardContent>
         </Card>
       )}
+      {/* Red Team LLM Config */}
+      <Card className="border-lobster/30 bg-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Brain className="h-5 w-5 text-lobster" />
+            Red Team LLM
+          </CardTitle>
+          <CardDescription>
+            AI model used for payload generation, adaptive attacks, explanations, and summaries.
+            This is separate from the target being tested.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {redTeamConfig && !rtEditing ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-background p-3">
+                <div className="flex items-center gap-3">
+                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${redTeamConfig.connected ? "bg-success" : "bg-muted-foreground"}`} />
+                  <div>
+                    <p className="text-sm font-medium">{redTeamConfig.model}</p>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {redTeamConfig.provider} &middot; {redTeamConfig.apiKeyLabel || "key set"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={redTeamConfig.connected ? "default" : "secondary"} className={redTeamConfig.connected ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}>
+                    {redTeamConfig.connected ? "Connected" : "Untested"}
+                  </Badge>
+                  <Button variant="ghost" size="sm" onClick={startEditingRedTeam} className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={removeRedTeam} className="h-8 w-8 p-0 text-muted-foreground hover:text-redpincer">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Provider */}
+              <div className="space-y-2">
+                <Label>Provider</Label>
+                <Select value={rtProvider} onValueChange={handleRtProviderChange}>
+                  <SelectTrigger className="w-full bg-background">
+                    <SelectValue placeholder="Select a provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI</SelectItem>
+                    <SelectItem value="anthropic">Anthropic</SelectItem>
+                    <SelectItem value="openrouter">OpenRouter</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Endpoint */}
+              <div className="space-y-2">
+                <Label htmlFor="rt-endpoint">API Endpoint</Label>
+                <Input
+                  id="rt-endpoint"
+                  placeholder="https://api.example.com/v1/chat/completions"
+                  value={rtEndpoint}
+                  onChange={(e) => setRtEndpoint(e.target.value)}
+                  className="bg-background font-mono text-sm"
+                />
+              </div>
+
+              {/* API Key */}
+              <div className="space-y-2">
+                <Label htmlFor="rt-api-key">API Key</Label>
+                {rtEditing && redTeamConfig?.apiKeyId && !rtApiKey.trim() ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-muted-foreground">
+                      🔒 {redTeamConfig.apiKeyLabel || "Stored securely"}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setRtApiKey(" ")} className="h-9 px-3 text-xs">
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <Input
+                    id="rt-api-key"
+                    type="password"
+                    placeholder={rtEditing && redTeamConfig?.apiKeyId ? "Enter new key to replace stored key" : PROVIDER_PRESETS[rtProvider].placeholder}
+                    value={rtApiKey}
+                    onChange={(e) => setRtApiKey(e.target.value)}
+                    className="bg-background font-mono text-sm"
+                  />
+                )}
+              </div>
+
+              {/* Model */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="rt-model">Model</Label>
+                  <div className="flex items-center gap-2">
+                    {rtProvider !== "custom" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={fetchRtModels}
+                        disabled={(!rtApiKey.trim() && !rtHasVaultKey) || rtFetchingModels}
+                        className="h-7 gap-1.5 px-2 text-xs"
+                      >
+                        {rtFetchingModels ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />Fetching...</>
+                        ) : (
+                          <><Download className="h-3 w-3" />Fetch Models</>
+                        )}
+                      </Button>
+                    )}
+                    {rtFetchedModels.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRtModelInputMode(rtModelInputMode === "select" ? "manual" : "select")}
+                        className="h-7 px-2 text-xs text-muted-foreground"
+                      >
+                        {rtModelInputMode === "select" ? "Type manually" : "Use dropdown"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {rtFetchError && <p className="text-xs text-redpincer">{rtFetchError}</p>}
+
+                {rtModelInputMode === "select" && rtFetchedModels.length > 0 ? (
+                  <Select value={rtModel} onValueChange={setRtModel}>
+                    <SelectTrigger className="w-full bg-background font-mono text-sm">
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {rtFetchedModels.map((m) => (
+                        <SelectItem key={m} value={m} className="font-mono text-sm">{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="rt-model"
+                    placeholder="e.g., gpt-4o, claude-sonnet-4-20250514"
+                    value={rtModel}
+                    onChange={(e) => setRtModel(e.target.value)}
+                    className="bg-background font-mono text-sm"
+                  />
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Test Connection */}
+              <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={testRtConnection} disabled={!rtEndpoint.trim() || (!rtApiKey.trim() && !rtHasVaultKey) || !rtModel.trim() || rtTesting} className="gap-2">
+                  {rtTesting ? (<><Loader2 className="h-4 w-4 animate-spin" />Testing...</>) : (<><Wifi className="h-4 w-4" />Test Connection</>)}
+                </Button>
+                {rtTestResult && (
+                  <div className="flex items-center gap-2">
+                    {rtTestResult.success ? (
+                      <><CheckCircle className="h-4 w-4 text-success" /><span className="text-sm text-success">Connected ({rtTestResult.latency}ms)</span></>
+                    ) : (
+                      <><XCircle className="h-4 w-4 text-redpincer" /><span className="text-sm text-redpincer">{rtTestResult.error || "Connection failed"}</span></>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Save / Cancel */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveRedTeam}
+                  disabled={!rtCanSave}
+                  className="flex-1 gap-2 bg-lobster font-semibold text-white hover:bg-lobster/90"
+                >
+                  <Brain className="h-4 w-4" />
+                  {rtEditing ? "Update Red Team LLM" : "Save Red Team LLM"}
+                </Button>
+                {rtEditing && (
+                  <Button variant="outline" onClick={() => setRtEditing(false)} className="gap-2">
+                    <X className="h-4 w-4" />
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -42,6 +42,11 @@ interface AppState {
   setRunProgress: (progress: { total: number; completed: number; startTime: number } | null) => void;
   incrementRunProgress: () => void;
 
+  // Red Team LLM (used for AI-powered features instead of target)
+  redTeamConfig: TargetConfig | null;
+  setRedTeamConfig: (config: TargetConfig | null) => void;
+  updateRedTeamConfig: (updates: Partial<TargetConfig>) => void;
+
   // UI state (not persisted)
   view: ViewName;
   setView: (view: ViewName) => void;
@@ -129,6 +134,16 @@ export const useStore = create<AppState>()(
             : null,
         })),
 
+      // Red Team LLM
+      redTeamConfig: null,
+      setRedTeamConfig: (config) => set({ redTeamConfig: config }),
+      updateRedTeamConfig: (updates) =>
+        set((state) => ({
+          redTeamConfig: state.redTeamConfig
+            ? { ...state.redTeamConfig, ...updates }
+            : null,
+        })),
+
       // UI state
       view: "config",
       setView: (view) => set({ view }),
@@ -144,6 +159,13 @@ export const useStore = create<AppState>()(
           const { apiKey: _key, ...safe } = t;
           return safe;
         }),
+        redTeamConfig: state.redTeamConfig
+          ? (() => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { apiKey: _k, ...safe } = state.redTeamConfig;
+              return safe;
+            })()
+          : null,
         activeTargetId: state.activeTargetId,
         selectedCategories: state.selectedCategories,
         runs: state.runs,

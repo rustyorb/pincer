@@ -18,6 +18,25 @@ export function getTargetKeyFields(target: TargetConfig): {
 }
 
 /**
+ * Build the common request fields (endpoint, model, provider, key) for an API call.
+ * Used to send red team or target config to API routes.
+ */
+export function getConfigRequestFields(config: TargetConfig): {
+  endpoint: string;
+  model: string;
+  provider: TargetConfig["provider"];
+  apiKeyId?: string;
+  apiKey?: string;
+} {
+  return {
+    endpoint: config.endpoint,
+    model: config.model,
+    provider: config.provider,
+    ...getTargetKeyFields(config),
+  };
+}
+
+/**
  * Check if a target has a usable API key (either vault-stored or legacy).
  */
 export function targetHasKey(target: TargetConfig): boolean {

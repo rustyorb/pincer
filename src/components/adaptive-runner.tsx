@@ -18,7 +18,7 @@ import {
 import type { AttackResult, AttackRun, AttackPayload } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getTargetKeyFields } from "@/lib/target-utils";
+import { getTargetKeyFields, getConfigRequestFields } from "@/lib/target-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 
 export function AdaptiveRunner() {
-  const { runs, targets, addRun, addResult, completeRun, isRunning, setIsRunning } = useStore();
+  const { runs, targets, addRun, addResult, completeRun, isRunning, setIsRunning, redTeamConfig } = useStore();
 
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [followUpResults, setFollowUpResults] = useState<AttackResult[]>([]);
@@ -65,8 +65,10 @@ export function AdaptiveRunner() {
 
   const generateAiPlan = async () => {
     if (!profile || !selectedRun) return;
-    const target = targets.find((t) => t.id === selectedRun.targetId);
-    if (!target) return;
+    if (!redTeamConfig) {
+      setAiPlanError("Red Team LLM not configured. Set one up in Target Configuration.");
+      return;
+    }
 
     setGeneratingAiPlan(true);
     setAiPlanError(null);
@@ -77,10 +79,7 @@ export function AdaptiveRunner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          endpoint: target.endpoint,
-          ...getTargetKeyFields(target),
-          model: target.model,
-          provider: target.provider,
+          ...getConfigRequestFields(redTeamConfig),
           profile,
         }),
       });
@@ -423,8 +422,9 @@ export function AdaptiveRunner() {
                     size="sm"
                     variant="outline"
                     className="gap-1.5 border-lobster/40 text-lobster hover:bg-lobster/10 text-xs"
-                    disabled={generatingAiPlan || running || isRunning}
+                    disabled={generatingAiPlan || running || isRunning || !redTeamConfig}
                     onClick={generateAiPlan}
+                    title={!redTeamConfig ? "Configure a Red Team LLM to use AI features" : undefined}
                   >
                     {generatingAiPlan ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />

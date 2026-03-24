@@ -17,7 +17,7 @@ npm run lint     # ESLint (v9 flat config)
 
 Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 
-**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/`. Use `npm ci` (not `npm install`) to respect the lockfile.
+**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/`. Vitest globals are enabled — `describe`/`it`/`expect` need no imports. Coverage tracks `src/lib/**/*.ts` excluding `src/lib/attacks/**`. Use `npm ci` (not `npm install`) to respect the lockfile.
 
 ## Architecture
 
@@ -59,6 +59,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 - `POST /api/explain` — Uses target LLM to explain why an attack result was classified as it was
 - `POST /api/mutate-payload` — Uses target LLM to mutate a blocked payload into a new bypass attempt
 - `POST /api/summarize-run` — Uses target LLM to generate executive summary of an attack run
+- `POST/DELETE/GET /api/keys` — API key vault CRUD (store, remove, check existence)
 
 ### Styling
 
@@ -116,4 +117,5 @@ Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-R
 - Use `import type` for TypeScript-only imports
 - shadcn/ui components live in `src/components/ui/` — add new ones via `npx shadcn add <component>`
 - Provider enum values: `"openai" | "anthropic" | "openrouter" | "custom"`
-- Attack categories: `"injection" | "jailbreak" | "extraction" | "bypass"`
+- Attack categories: `"injection" | "jailbreak" | "extraction" | "bypass" | "tool_abuse" | "multi_turn" | "encoding"`
+- Run a single test file: `npx vitest run src/lib/__tests__/analysis.test.ts`

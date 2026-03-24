@@ -12,7 +12,7 @@ import type {
   ModelTarget,
 } from "@/lib/types";
 import { CATEGORY_LABELS, MODEL_TARGET_LABELS } from "@/lib/types";
-import { getTargetKeyFields } from "@/lib/target-utils";
+import { getTargetKeyFields, getConfigRequestFields } from "@/lib/target-utils";
 import {
   generateVariantsForCategory,
   type PayloadVariant,
@@ -339,6 +339,7 @@ export function PayloadEditor() {
     setIsRunning,
     setView,
     isRunning,
+    redTeamConfig,
   } = useStore();
 
   // Local state
@@ -528,9 +529,8 @@ export function PayloadEditor() {
   // ── Generate with AI ────────────────────────────────────────────────────
 
   const generateWithAI = async () => {
-    const target = targets.find((t) => t.id === activeTargetId);
-    if (!target) {
-      toast.error("No active target configured — needed for AI generation");
+    if (!redTeamConfig) {
+      toast.error("Configure a Red Team LLM to use AI generation");
       return;
     }
 
@@ -540,10 +540,7 @@ export function PayloadEditor() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          endpoint: target.endpoint,
-          ...getTargetKeyFields(target),
-          model: target.model,
-          provider: target.provider,
+          ...getConfigRequestFields(redTeamConfig),
           category: form.category,
         }),
       });
@@ -1005,7 +1002,8 @@ export function PayloadEditor() {
                 <Button
                   variant="outline"
                   onClick={generateWithAI}
-                  disabled={!activeTargetId || generating}
+                  disabled={!redTeamConfig || generating}
+                  title={!redTeamConfig ? "Configure a Red Team LLM to use AI features" : undefined}
                   className="gap-2 border-lobster/30 text-lobster hover:bg-lobster/10"
                 >
                   {generating ? (
