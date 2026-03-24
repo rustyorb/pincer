@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import type { AttackCategory, Severity, AttackResult, AnalysisClassification } from "@/lib/types";
 import { CATEGORY_LABELS, SEVERITY_ORDER } from "@/lib/types";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import {
   Card,
   CardContent,
@@ -162,7 +163,7 @@ export function ResultsDashboard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             endpoint: activeTarget.endpoint,
-            apiKey: activeTarget.apiKey,
+            ...getTargetKeyFields(activeTarget),
             model: activeTarget.model,
             provider: activeTarget.provider,
             prompt: result.prompt,
@@ -194,7 +195,7 @@ export function ResultsDashboard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             endpoint: activeTarget.endpoint,
-            apiKey: activeTarget.apiKey,
+            ...getTargetKeyFields(activeTarget),
             model: activeTarget.model,
             provider: activeTarget.provider,
             originalPrompt: result.prompt,

@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { CATEGORY_LABELS } from "@/lib/types";
 import type { AttackCategory, AttackRun } from "@/lib/types";
+import { getTargetKeyFields } from "@/lib/target-utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -782,7 +783,7 @@ export function ReportGenerator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           endpoint: activeTarget.endpoint,
-          apiKey: activeTarget.apiKey,
+          ...getTargetKeyFields(activeTarget),
           model: activeTarget.model,
           provider: activeTarget.provider,
           targetName: activeRun.targetName,

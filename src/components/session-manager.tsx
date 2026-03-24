@@ -158,10 +158,7 @@ export function SessionManager() {
   };
 
   const handleDeleteRun = (runId: string) => {
-    useStore.setState((state) => ({
-      runs: state.runs.filter((r) => r.id !== runId),
-      activeRunId: state.activeRunId === runId ? null : state.activeRunId,
-    }));
+    useStore.getState().deleteRun(runId);
     setDeleteRunId(null);
     toast.success("Run deleted");
   };

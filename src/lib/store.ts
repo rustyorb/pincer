@@ -31,6 +31,7 @@ interface AppState {
   completeRun: (runId: string) => void;
   cancelRun: (runId: string) => void;
   setActiveRun: (id: string | null) => void;
+  deleteRun: (runId: string) => void;
 
   // UI state (not persisted)
   view: ViewName;
@@ -98,6 +99,12 @@ export const useStore = create<AppState>()(
           ),
         })),
       setActiveRun: (id) => set({ activeRunId: id }),
+      deleteRun: (runId) =>
+        set((state) => ({
+          runs: state.runs.filter((r) => r.id !== runId),
+          activeRunId:
+            state.activeRunId === runId ? null : state.activeRunId,
+        })),
 
       // UI state
       view: "config",
