@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { generateId } from "@/lib/uuid";
 import { allPayloads, getPayloadsByCategory } from "@/lib/attacks";
@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { getTargetKeyFields } from "@/lib/target-utils";
@@ -27,6 +28,9 @@ import {
   Puzzle,
   Play,
   Loader2,
+  Search,
+  X,
+  Filter,
 } from "lucide-react";
 
 const CATEGORIES: AttackCategory[] = [
@@ -79,6 +83,19 @@ function severityColor(severity: Severity): string {
   }
 }
 
+const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
+const MODEL_TARGETS: ModelTarget[] = ["universal", "gpt", "claude", "llama"];
+
+function matchesSearch(payload: AttackPayload, query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    payload.name.toLowerCase().includes(q) ||
+    payload.description.toLowerCase().includes(q) ||
+    payload.id.toLowerCase().includes(q) ||
+    (payload.tags?.some((t) => t.toLowerCase().includes(q)) ?? false)
+  );
+}
+
 export function AttackModules() {
   const { targets, activeTargetId, addRun, addResult, completeRun, isRunning, setIsRunning, setView, setActiveRun } = useStore();
   const [expanded, setExpanded] = useState<Set<AttackCategory>>(new Set());
@@ -86,6 +103,67 @@ export function AttackModules() {
   const [customExpanded, setCustomExpanded] = useState(false);
   const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set());
   const [runningCustom, setRunningCustom] = useState(false);
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [severityFilters, setSeverityFilters] = useState<Set<Severity>>(new Set());
+  const [modelTargetFilter, setModelTargetFilter] = useState<ModelTarget | null>(null);
+
+  const hasActiveFilters = searchQuery.length > 0 || severityFilters.size > 0 || modelTargetFilter !== null;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSeverityFilters(new Set());
+    setModelTargetFilter(null);
+  };
+
+  const toggleSeverityFilter = (s: Severity) => {
+    setSeverityFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
+
+  // Memoized filtered payloads per category
+  const filteredByCategory = useMemo(() => {
+    const result: Record<AttackCategory, AttackPayload[]> = {} as Record<AttackCategory, AttackPayload[]>;
+    for (const cat of CATEGORIES) {
+      let payloads = getPayloadsByCategory(cat);
+      if (searchQuery) {
+        payloads = payloads.filter((p) => matchesSearch(p, searchQuery));
+      }
+      if (severityFilters.size > 0) {
+        payloads = payloads.filter((p) => severityFilters.has(p.severity));
+      }
+      if (modelTargetFilter) {
+        payloads = payloads.filter((p) => (p.modelTarget ?? "universal") === modelTargetFilter);
+      }
+      result[cat] = payloads;
+    }
+    return result;
+  }, [searchQuery, severityFilters, modelTargetFilter]);
+
+  const totalFiltered = useMemo(
+    () => Object.values(filteredByCategory).reduce((sum, arr) => sum + arr.length, 0),
+    [filteredByCategory]
+  );
+
+  // Filtered custom payloads
+  const filteredCustomPayloads = useMemo(() => {
+    let payloads = customPayloads;
+    if (searchQuery) {
+      payloads = payloads.filter((p) => matchesSearch(p, searchQuery));
+    }
+    if (severityFilters.size > 0) {
+      payloads = payloads.filter((p) => severityFilters.has(p.severity));
+    }
+    if (modelTargetFilter) {
+      payloads = payloads.filter((p) => (p.modelTarget ?? "universal") === modelTargetFilter);
+    }
+    return payloads;
+  }, [customPayloads, searchQuery, severityFilters, modelTargetFilter]);
 
   useEffect(() => {
     try {
@@ -203,9 +281,88 @@ export function AttackModules() {
         </p>
       </div>
 
+      {/* Filter Toolbar */}
+      <Card className="border-border bg-card">
+        <CardContent className="p-4 space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search payloads by name, description, ID, or tag..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9 bg-background"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter row */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+
+            {/* Severity toggles */}
+            <span className="text-xs text-muted-foreground mr-1">Severity:</span>
+            {SEVERITIES.map((s) => (
+              <button
+                key={s}
+                onClick={() => toggleSeverityFilter(s)}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium border transition-colors ${
+                  severityFilters.has(s)
+                    ? severityColor(s)
+                    : "border-border text-muted-foreground hover:border-muted-foreground"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+
+            <Separator orientation="vertical" className="h-5 mx-1" />
+
+            {/* Model target toggles */}
+            <span className="text-xs text-muted-foreground mr-1">Target:</span>
+            {MODEL_TARGETS.map((mt) => (
+              <button
+                key={mt}
+                onClick={() => setModelTargetFilter(modelTargetFilter === mt ? null : mt)}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium border transition-colors ${
+                  modelTargetFilter === mt
+                    ? "border-redpincer/50 bg-redpincer/20 text-redpincer"
+                    : "border-border text-muted-foreground hover:border-muted-foreground"
+                }`}
+              >
+                {MODEL_TARGET_LABELS[mt]}
+              </button>
+            ))}
+
+            {/* Clear + count */}
+            {hasActiveFilters && (
+              <>
+                <Separator orientation="vertical" className="h-5 mx-1" />
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-mono text-foreground">{totalFiltered}</span> / {allPayloads.length} payloads
+                </span>
+                <button
+                  onClick={clearFilters}
+                  className="rounded px-2 py-0.5 text-[11px] text-redpincer hover:bg-redpincer/10 transition-colors"
+                >
+                  Clear filters
+                </button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-3">
         {/* Custom Payloads Section */}
-        {customPayloads.length > 0 && (
+        {filteredCustomPayloads.length > 0 && (
           <Card className="border-lobster/30 bg-card">
             <CardHeader
               className="cursor-pointer select-none transition-colors hover:bg-accent/50"
@@ -218,7 +375,10 @@ export function AttackModules() {
                     <CardTitle className="text-base flex items-center gap-2">
                       Custom Payloads
                       <Badge variant="outline" className="border-lobster/40 text-lobster text-[10px]">
-                        {customPayloads.length}
+                        {filteredCustomPayloads.length}
+                        {hasActiveFilters && filteredCustomPayloads.length !== customPayloads.length && (
+                          <span className="text-muted-foreground">/{customPayloads.length}</span>
+                        )}
                       </Badge>
                     </CardTitle>
                     <CardDescription className="mt-0.5 text-xs">
@@ -241,11 +401,11 @@ export function AttackModules() {
                 <div className="mb-3 flex items-center justify-between">
                   <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                     <Checkbox
-                      checked={selectedCustomIds.size === customPayloads.length && customPayloads.length > 0}
+                      checked={selectedCustomIds.size === filteredCustomPayloads.length && filteredCustomPayloads.length > 0}
                       onCheckedChange={toggleSelectAll}
                       className="border-muted-foreground data-[state=checked]:border-lobster data-[state=checked]:bg-lobster"
                     />
-                    Select all ({customPayloads.length})
+                    Select all ({filteredCustomPayloads.length})
                   </label>
 
                   {selectedCustomIds.size > 0 && (
@@ -266,7 +426,7 @@ export function AttackModules() {
                 </div>
 
                 <div className="space-y-2">
-                  {customPayloads.map((payload) => (
+                  {filteredCustomPayloads.map((payload) => (
                     <div key={payload.id} className="flex items-start gap-2">
                       <Checkbox
                         checked={selectedCustomIds.has(payload.id)}
@@ -291,7 +451,8 @@ export function AttackModules() {
         )}
 
         {CATEGORIES.map((cat) => {
-          const payloads = getPayloadsByCategory(cat);
+          const payloads = filteredByCategory[cat];
+          const totalInCategory = getPayloadsByCategory(cat).length;
           const isExpanded = expanded.has(cat);
           const criticalCount = payloads.filter(
             (p) => p.severity === "critical"
@@ -299,6 +460,9 @@ export function AttackModules() {
           const highCount = payloads.filter(
             (p) => p.severity === "high"
           ).length;
+
+          // Hide empty categories when filtering
+          if (hasActiveFilters && payloads.length === 0) return null;
 
           return (
             <Card key={cat} className="border-border bg-card">
@@ -316,6 +480,9 @@ export function AttackModules() {
                       <CardDescription className="mt-0.5 text-xs">
                         {payloads.length} payload
                         {payloads.length !== 1 ? "s" : ""}
+                        {hasActiveFilters && payloads.length !== totalInCategory && (
+                          <span className="text-muted-foreground"> / {totalInCategory} total</span>
+                        )}
                         {criticalCount > 0 && (
                           <span className="ml-2 text-redpincer">
                             {criticalCount} critical
@@ -364,6 +531,24 @@ export function AttackModules() {
             </Card>
           );
         })}
+
+        {/* No results message */}
+        {hasActiveFilters && totalFiltered === 0 && filteredCustomPayloads.length === 0 && (
+          <Card className="border-border bg-card">
+            <CardContent className="p-8 text-center">
+              <Search className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">
+                No payloads match your filters.
+              </p>
+              <button
+                onClick={clearFilters}
+                className="mt-2 text-sm text-redpincer hover:underline"
+              >
+                Clear all filters
+              </button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

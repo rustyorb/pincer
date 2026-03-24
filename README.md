@@ -46,6 +46,7 @@
 - **AI-Powered Payload Generation** via target LLM
 - **Concurrent Execution** — run 1-10 payloads in parallel
 - **Live Progress Tracking** — X/N completed, progress bar, elapsed time, ETA
+- **Payload Search & Filter** — text search, severity filter, model target filter across all categories
 - **Stop/Cancel** running attacks instantly
 
 </td>
@@ -238,7 +239,7 @@ src/
 ├── components/
 │   ├── sidebar.tsx                    # Navigation + targets + run/stop
 │   ├── target-config.tsx              # Target CRUD + model dropdown
-│   ├── attack-modules.tsx             # Payload browser
+│   ├── attack-modules.tsx             # Payload browser with search & filter
 │   ├── results-dashboard.tsx          # Results + analysis display
 │   ├── report-generator.tsx           # Verbose report export
 │   ├── chain-builder.tsx              # Multi-step chain editor
