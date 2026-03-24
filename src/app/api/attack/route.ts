@@ -19,6 +19,7 @@ interface AttackRequestBody {
   categories?: AttackCategory[];
   payloadIds?: string[];
   rawPayloads?: AttackPayload[];
+  concurrency?: number;
 }
 
 function resolvePayloads(body: AttackRequestBody): AttackPayload[] {
@@ -34,18 +35,84 @@ function resolvePayloads(body: AttackRequestBody): AttackPayload[] {
   return [];
 }
 
+/** Execute a single payload and return the AttackResult. */
+async function executePayload(
+  payload: AttackPayload,
+  endpoint: string,
+  apiKey: string,
+  model: string,
+  provider: TargetConfig["provider"]
+): Promise<AttackResult> {
+  try {
+    const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
+    if (payload.systemPrompt) {
+      messages.push({ role: "system", content: payload.systemPrompt });
+    }
+    messages.push({ role: "user", content: payload.prompt });
+
+    const llmResult = await sendLLMRequest({
+      endpoint,
+      apiKey,
+      model,
+      provider,
+      messages,
+    });
+
+    const analysis = llmResult.error
+      ? errorAnalysis(llmResult.error)
+      : analyzeResponse(llmResult.content, payload.category, payload.prompt);
+    const success =
+      analysis.classification !== "refusal" &&
+      analysis.classification !== "error";
+
+    return {
+      id: `${payload.id}-${Date.now()}`,
+      payloadId: payload.id,
+      payloadName: payload.name,
+      category: payload.category,
+      severity: payload.severity,
+      status: llmResult.error ? "error" : success ? "success" : "fail",
+      prompt: payload.prompt,
+      response: llmResult.content || llmResult.error || "",
+      timestamp: Date.now(),
+      durationMs: llmResult.durationMs,
+      success,
+      analysis,
+    };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    return {
+      id: `${payload.id}-${Date.now()}`,
+      payloadId: payload.id,
+      payloadName: payload.name,
+      category: payload.category,
+      severity: payload.severity,
+      status: "error",
+      prompt: payload.prompt,
+      response: "",
+      timestamp: Date.now(),
+      durationMs: 0,
+      success: false,
+      analysis: errorAnalysis(`Execution error: ${errorMessage}`),
+    };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: AttackRequestBody = await request.json();
     const { endpoint, model, provider } = body;
-    const apiKey = resolveKeyFromBody(body);
+    const resolvedKey = resolveKeyFromBody(body);
 
-    if (!endpoint || !apiKey || !model || !provider) {
+    if (!endpoint || !resolvedKey || !model || !provider) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    // Narrow type after guard
+    const apiKey: string = resolvedKey;
 
     const payloads = resolvePayloads(body);
 
@@ -56,78 +123,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Concurrency: 1 = sequential (default), up to 10 concurrent
+    const concurrency = Math.max(1, Math.min(10, body.concurrency ?? 1));
+
     // Stream results as newline-delimited JSON
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
-        for (const payload of payloads) {
-          try {
-            // Build the messages array
-            const messages: { role: "system" | "user" | "assistant"; content: string }[] = [];
-            if (payload.systemPrompt) {
-              messages.push({ role: "system", content: payload.systemPrompt });
-            }
-            messages.push({ role: "user", content: payload.prompt });
-
-            // Send the request
-            const llmResult = await sendLLMRequest({
-              endpoint,
-              apiKey,
-              model,
-              provider,
-              messages,
-            });
-
-            // Analyze the response
-            const analysis = llmResult.error
-              ? errorAnalysis(llmResult.error)
-              : analyzeResponse(llmResult.content, payload.category, payload.prompt);
-            const success =
-              analysis.classification !== "refusal" &&
-              analysis.classification !== "error";
-
-            const result: AttackResult = {
-              id: `${payload.id}-${Date.now()}`,
-              payloadId: payload.id,
-              payloadName: payload.name,
-              category: payload.category,
-              severity: payload.severity,
-              status: llmResult.error ? "error" : success ? "success" : "fail",
-              prompt: payload.prompt,
-              response: llmResult.content || llmResult.error || "",
-              timestamp: Date.now(),
-              durationMs: llmResult.durationMs,
-              success,
-              analysis,
-            };
-
-            // Write the result as a JSON line
+        if (concurrency === 1) {
+          // Sequential mode — original behavior, preserves ordering
+          for (const payload of payloads) {
+            const result = await executePayload(payload, endpoint, apiKey, model, provider);
             controller.enqueue(encoder.encode(JSON.stringify(result) + "\n"));
-          } catch (err: unknown) {
-            // If a single payload errors, report it and continue
-            const errorMessage =
-              err instanceof Error ? err.message : "Unknown error";
-
-            const errorResult: AttackResult = {
-              id: `${payload.id}-${Date.now()}`,
-              payloadId: payload.id,
-              payloadName: payload.name,
-              category: payload.category,
-              severity: payload.severity,
-              status: "error",
-              prompt: payload.prompt,
-              response: "",
-              timestamp: Date.now(),
-              durationMs: 0,
-              success: false,
-              analysis: errorAnalysis(`Execution error: ${errorMessage}`),
-            };
-
-            controller.enqueue(
-              encoder.encode(JSON.stringify(errorResult) + "\n")
-            );
           }
+        } else {
+          // Concurrent mode — semaphore-style pool
+          let index = 0;
+          const total = payloads.length;
+
+          async function runWorker() {
+            while (true) {
+              const i = index++;
+              if (i >= total) break;
+              const result = await executePayload(payloads[i], endpoint, apiKey, model, provider);
+              controller.enqueue(encoder.encode(JSON.stringify(result) + "\n"));
+            }
+          }
+
+          // Spawn N workers that pull from a shared index
+          const workers = Array.from({ length: Math.min(concurrency, total) }, () => runWorker());
+          await Promise.all(workers);
         }
 
         controller.close();

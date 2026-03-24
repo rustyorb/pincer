@@ -30,6 +30,8 @@ import {
   GitBranch,
   Calculator,
   LogOut,
+  Zap,
+  Minus,
 } from "lucide-react";
 import { useAuth } from "@/lib/use-auth";
 
@@ -59,6 +61,8 @@ export function Sidebar() {
     completeRun,
     cancelRun,
     setActiveRun,
+    concurrency,
+    setConcurrency,
   } = useStore();
 
   const { authEnabled, username, logout } = useAuth();
@@ -109,6 +113,7 @@ export function Sidebar() {
           model: target.model,
           provider: target.provider,
           categories: selectedCategories,
+          concurrency,
         }),
         signal: controller.signal,
       });
@@ -389,6 +394,33 @@ export function Sidebar() {
 
       {/* RUN / STOP Buttons */}
       <div className="shrink-0 border-t border-border p-4 space-y-2">
+        {/* Concurrency selector */}
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Zap className="h-3 w-3" />
+            Concurrency
+          </label>
+          <div className="flex items-center gap-1">
+            <button
+              className="flex h-6 w-6 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
+              onClick={() => setConcurrency(concurrency - 1)}
+              disabled={concurrency <= 1 || isRunning}
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <span className="w-6 text-center text-xs font-mono font-semibold text-foreground">
+              {concurrency}
+            </span>
+            <button
+              className="flex h-6 w-6 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
+              onClick={() => setConcurrency(concurrency + 1)}
+              disabled={concurrency >= 10 || isRunning}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+
         {isRunning ? (
           <Button
             className="w-full gap-2 bg-destructive font-semibold text-destructive-foreground hover:bg-destructive/90"

@@ -44,6 +44,7 @@
 - **20 Variant Transforms** (unicode, encoding, case, etc.)
 - **Attack Chaining** with template variables
 - **AI-Powered Payload Generation** via target LLM
+- **Concurrent Execution** — run 1-10 payloads in parallel
 - **Stop/Cancel** running attacks instantly
 
 </td>
@@ -158,9 +159,10 @@ graph LR
 
 1. **Configure a Target** — Add an LLM endpoint with provider, API key, and model (auto-fetched)
 2. **Select Attack Categories** — Check the categories to test
-3. **Run Attack** — Hit RUN to stream attacks; hit STOP to cancel anytime
-4. **Review Results** — Analyze with heuristic classification, severity scores, and leaked data highlights
-5. **Generate Report** — Export findings as Markdown, JSON, CSV, or SARIF
+3. **Set Concurrency** — Adjust parallel requests (1-10) with the sidebar concurrency control
+4. **Run Attack** — Hit RUN to stream attacks; hit STOP to cancel anytime
+5. **Review Results** — Analyze with heuristic classification, severity scores, and leaked data highlights
+6. **Generate Report** — Export findings as Markdown, JSON, CSV, or SARIF
 
 ### Advanced Tools
 
@@ -197,7 +199,7 @@ Target Config ──> POST /api/attack ──> NDJSON Stream ──> Heuristic A
 
 | Route | Method | Description |
 |:------|:------:|:------------|
-| `/api/attack` | POST | Streams attack results as NDJSON |
+| `/api/attack` | POST | Streams attack results as NDJSON (supports concurrent execution) |
 | `/api/chain` | POST | Executes multi-step attack chains |
 | `/api/test-connection` | POST | Validates endpoint connectivity |
 | `/api/models` | POST | Fetches available models from provider |

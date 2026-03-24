@@ -33,6 +33,10 @@ interface AppState {
   setActiveRun: (id: string | null) => void;
   deleteRun: (runId: string) => void;
 
+  // Run settings
+  concurrency: number;
+  setConcurrency: (n: number) => void;
+
   // UI state (not persisted)
   view: ViewName;
   setView: (view: ViewName) => void;
@@ -106,6 +110,10 @@ export const useStore = create<AppState>()(
             state.activeRunId === runId ? null : state.activeRunId,
         })),
 
+      // Run settings
+      concurrency: 1,
+      setConcurrency: (n) => set({ concurrency: Math.max(1, Math.min(10, n)) }),
+
       // UI state
       view: "config",
       setView: (view) => set({ view }),
@@ -125,6 +133,7 @@ export const useStore = create<AppState>()(
         selectedCategories: state.selectedCategories,
         runs: state.runs,
         activeRunId: state.activeRunId,
+        concurrency: state.concurrency,
       }),
     }
   )

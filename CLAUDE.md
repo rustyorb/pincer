@@ -37,7 +37,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 
 | Module | Purpose |
 |---|---|
-| `src/lib/store.ts` | Zustand store (`useStore` hook) with persist middleware. Persisted via `partialize`: targets, activeTargetId, selectedCategories, runs, activeRunId. NOT persisted: view, isRunning. |
+| `src/lib/store.ts` | Zustand store (`useStore` hook) with persist middleware. Persisted via `partialize`: targets, activeTargetId, selectedCategories, runs, activeRunId, concurrency. NOT persisted: view, isRunning. |
 | `src/lib/types.ts` | All TypeScript interfaces and enums. Core types: `TargetConfig`, `AttackPayload`, `AttackResult`, `AnalysisResult`, `AttackRun`, `AttackChain` |
 | `src/lib/llm-client.ts` | Multi-provider client. OpenAI/OpenRouter use chat.completions format; Anthropic uses Messages API with top-level `system` param. 30s timeout. |
 | `src/lib/analysis.ts` | Heuristic response classifier with refusal, compliance, explanation, and hedging pattern detection. Context-aware analysis prevents false positives (e.g., decoding base64 + refusing = refusal, not breach). Outputs classification + severity score (1-10) + confidence (0-1). |
@@ -50,7 +50,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 
 ### API Routes
 
-- `POST /api/attack` — Streams attack results as NDJSON. Supports AbortController for stop functionality. Accepts `{endpoint, apiKey, model, provider, categories?, payloadIds?}`
+- `POST /api/attack` — Streams attack results as NDJSON. Supports AbortController for stop functionality. Accepts `{endpoint, apiKey, model, provider, categories?, payloadIds?, concurrency?}`. Concurrency (1-10, default 1) controls parallel LLM requests — higher values run faster but may trigger provider rate limits.
 - `POST /api/chain` — Executes chain steps sequentially with template resolution
 - `POST /api/test-connection` — Validates LLM endpoint connectivity
 - `POST /api/models` — Fetches available models from provider API (OpenAI, Anthropic hardcoded list, OpenRouter)
