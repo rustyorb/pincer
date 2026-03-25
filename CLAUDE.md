@@ -17,7 +17,7 @@ npm run lint     # ESLint (v9 flat config)
 
 Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 
-**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/` (13 test files, 283 tests). Vitest globals are enabled — `describe`/`it`/`expect` need no imports. Coverage tracks `src/lib/**/*.ts` excluding `src/lib/attacks/**`. Use `npm ci` (not `npm install`) to respect the lockfile.
+**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/` (14 test files, 342 tests). Vitest globals are enabled — `describe`/`it`/`expect` need no imports. Coverage tracks `src/lib/**/*.ts` excluding `src/lib/attacks/**`. Use `npm ci` (not `npm install`) to respect the lockfile.
 
 ## Architecture
 
@@ -48,6 +48,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 | `src/lib/scoring.ts` | Custom scoring rubric system — weighted scoring by category, severity, classification with letter grades |
 | `src/lib/keyboard-shortcuts.ts` | Shortcut definitions, view mappings, input detection, formatting utilities |
 | `src/lib/use-keyboard-shortcuts.ts` | React hook for global keyboard shortcut handling (dispatches custom events for run/stop) |
+| `src/lib/persistence.ts` | Session import/export, validation, merge (dedup by id), localStorage helpers, sanitization (strips API keys), size utilities |
 | `src/lib/export.ts` | Structured data export — JSON (full results), CSV (flat table), SARIF v2.1.0 (industry standard for security tools) |
 
 ### API Routes
