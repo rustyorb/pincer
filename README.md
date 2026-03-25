@@ -117,6 +117,7 @@ OpenAI  ·  Anthropic  ·  OpenRouter  ·  Any OpenAI-compatible endpoint
 - :locked_with_key: **Encoding Bypass** — 18 payloads testing base64, hex, ROT13, unicode, and layered encoding
 - :outbox_tray: **Structured Export** — Download results as JSON, CSV, or SARIF v2.1.0 for CI/CD and SIEM integration
 - :key: **API Key Vault** — Server-side AES-256-GCM encrypted key storage (keys never persist client-side)
+- :keyboard: **Keyboard Shortcuts** — Navigate views (Ctrl+1-0), run/stop attacks (Ctrl+Enter/.), help dialog (Ctrl+/)
 
 </details>
 
@@ -180,6 +181,19 @@ graph LR
 | **Chains** | Build multi-step attacks with `{{previous_response}}` template variables |
 | **Payload Editor** | Create custom payloads with syntax highlighting + AI generation |
 | **Export** | Download results as JSON (full data), CSV (spreadsheet), or SARIF (GitHub/Azure security) |
+
+### Keyboard Shortcuts
+
+Press `Ctrl+/` (or `⌘/` on Mac) to open the shortcuts dialog. Key bindings:
+
+| Shortcut | Action |
+|:---------|:-------|
+| `Ctrl+1` through `Ctrl+0` | Navigate to views (Config, Attacks, Results, Reports, Chains, Session, Editor, Compare, Adaptive, Heatmap) |
+| `Ctrl+Enter` | Start attack run |
+| `Ctrl+.` | Stop current run |
+| `Ctrl+/` | Toggle shortcuts help dialog |
+
+Shortcuts are suppressed when typing in input fields.
 
 ---
 

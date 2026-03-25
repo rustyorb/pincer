@@ -3,6 +3,7 @@ import { useRef, useState, useEffect } from "react";
 import { generateId } from "@/lib/uuid";
 
 import { useStore } from "@/lib/store";
+import { SHORTCUT_EVENTS } from "@/lib/use-keyboard-shortcuts";
 import type { AttackCategory, AttackRun } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,22 @@ export function Sidebar() {
   const canRun =
     activeTargetId !== null && selectedCategories.length > 0 && !isRunning;
 
+  // Refs for keyboard shortcut event handlers (avoid stale closures)
+  const runAttacksRef = useRef<(() => void) | null>(null);
+  const stopAttacksRef = useRef<(() => void) | null>(null);
+
+  // Listen for keyboard shortcut events
+  useEffect(() => {
+    const handleRun = () => runAttacksRef.current?.();
+    const handleStop = () => stopAttacksRef.current?.();
+    window.addEventListener(SHORTCUT_EVENTS.RUN_ATTACKS, handleRun);
+    window.addEventListener(SHORTCUT_EVENTS.STOP_ATTACKS, handleStop);
+    return () => {
+      window.removeEventListener(SHORTCUT_EVENTS.RUN_ATTACKS, handleRun);
+      window.removeEventListener(SHORTCUT_EVENTS.STOP_ATTACKS, handleStop);
+    };
+  }, []);
+
   const stopAttacks = () => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -213,6 +230,10 @@ export function Sidebar() {
       abortRef.current = null;
     }
   };
+
+  // Keep refs in sync for keyboard shortcut events
+  runAttacksRef.current = canRun ? runAttacks : null;
+  stopAttacksRef.current = isRunning ? stopAttacks : null;
 
   return (
     <aside className="flex h-screen w-[280px] shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground">

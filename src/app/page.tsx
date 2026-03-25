@@ -1,6 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/store";
+import { useKeyboardShortcuts } from "@/lib/use-keyboard-shortcuts";
 import { Sidebar } from "@/components/sidebar";
 import { TargetConfig } from "@/components/target-config";
 import { AttackModules } from "@/components/attack-modules";
@@ -14,9 +15,11 @@ import { AdaptiveRunner } from "@/components/adaptive-runner";
 import { VulnerabilityHeatmap } from "@/components/vulnerability-heatmap";
 import { RegressionRunner } from "@/components/regression-runner";
 import { ScoringConfig } from "@/components/scoring-config";
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 
 export default function Home() {
   const view = useStore((s) => s.view);
+  const { showHelp, setShowHelp } = useKeyboardShortcuts();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -35,6 +38,7 @@ export default function Home() {
         {view === "regression" && <RegressionRunner />}
         {view === "scoring" && <ScoringConfig />}
       </main>
+      <KeyboardShortcutsDialog open={showHelp} onOpenChange={setShowHelp} />
     </div>
   );
 }
