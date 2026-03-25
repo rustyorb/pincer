@@ -36,6 +36,7 @@ import {
   Minus,
 } from "lucide-react";
 import { useAuth } from "@/lib/use-auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const ATTACK_CATEGORIES: AttackCategory[] = [
   "injection",
@@ -488,6 +489,11 @@ export function Sidebar() {
           </div>
         </div>
       </ScrollArea>
+
+      {/* Theme Toggle */}
+      <div className="shrink-0 border-t border-border px-4 py-2">
+        <ThemeToggle />
+      </div>
 
       {/* RUN / STOP Buttons */}
       <div className="shrink-0 border-t border-border p-4 space-y-2">
