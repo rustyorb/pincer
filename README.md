@@ -53,7 +53,7 @@
 <td width="50%">
 
 ### :bar_chart: Analysis & Reporting
-- **Heuristic Response Classifier** with context-aware analysis
+- **Heuristic Response Classifier** with context-aware analysis in 11 languages
 - **Results Search & Filter** — text search, classification/severity/category/status filters, sortable columns
 - **Retry Failed Payloads** — re-run errored or blocked payloads from any completed run (bulk or per-result)
 - **Vulnerability Heatmap** — visual category x severity matrix
@@ -271,7 +271,7 @@ src/
     ├── store.ts                       # Zustand store (persisted)
     ├── types.ts                       # TypeScript interfaces
     ├── llm-client.ts                  # Multi-provider LLM client
-    ├── analysis.ts                    # Context-aware heuristic engine
+    ├── analysis.ts                    # Context-aware heuristic engine (11 languages)
     ├── adaptive.ts                    # Weakness analysis + follow-ups
     ├── scoring.ts                     # Custom scoring rubric engine
     ├── chains.ts                      # Attack chain definitions

@@ -17,7 +17,7 @@ npm run lint     # ESLint (v9 flat config)
 
 Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 
-**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/` (14 test files, 342 tests). Vitest globals are enabled — `describe`/`it`/`expect` need no imports. Coverage tracks `src/lib/**/*.ts` excluding `src/lib/attacks/**`. Use `npm ci` (not `npm install`) to respect the lockfile.
+**Testing:** Vitest + jsdom. Run `npm test` (single run), `npm run test:watch` (watch mode), `npm run test:coverage` (with coverage). Tests live in `src/lib/__tests__/` (14 test files, 357 tests). Vitest globals are enabled — `describe`/`it`/`expect` need no imports. Coverage tracks `src/lib/**/*.ts` excluding `src/lib/attacks/**`. Use `npm ci` (not `npm install`) to respect the lockfile.
 
 ## Architecture
 
@@ -40,7 +40,7 @@ Docker: `docker build -t redpincer . && docker run -p 3000:3000 redpincer`
 | `src/lib/store.ts` | Zustand store (`useStore` hook) with persist middleware. Persisted via `partialize`: targets, activeTargetId, selectedCategories, runs, activeRunId, concurrency. NOT persisted: view, isRunning. |
 | `src/lib/types.ts` | All TypeScript interfaces and enums. Core types: `TargetConfig`, `AttackPayload`, `AttackResult`, `AnalysisResult`, `AttackRun`, `AttackChain` |
 | `src/lib/llm-client.ts` | Multi-provider client. OpenAI/OpenRouter use chat.completions format; Anthropic uses Messages API with top-level `system` param. 30s timeout. |
-| `src/lib/analysis.ts` | Heuristic response classifier with refusal, compliance, explanation, and hedging pattern detection. Context-aware analysis prevents false positives (e.g., decoding base64 + refusing = refusal, not breach). Outputs classification + severity score (1-10) + confidence (0-1). |
+| `src/lib/analysis.ts` | Heuristic response classifier with refusal, compliance, explanation, and hedging pattern detection in 11 languages (EN, ES, FR, DE, PT, RU, ZH, JA, KO, AR, IT). Context-aware analysis prevents false positives (e.g., decoding base64 + refusing = refusal, not breach). Outputs classification + severity score (1-10) + confidence (0-1). |
 | `src/lib/chains.ts` | Sequential multi-step attacks. Steps support `{{previous_response}}` and `{{step:stepId}}` template variables. Response transforms: full, extract_json, extract_code, first_line, last_paragraph. |
 | `src/lib/variants.ts` | 20 payload transformations (case, unicode homoglyphs, base64, ROT13, leetspeak, zero-width spaces, etc.) |
 | `src/lib/attacks/*.ts` | 222 payloads across 7 categories with id format `inj-001`, `jb-001`, `ext-001`, `byp-001`, `ta-001`, `mt-001`, `enc-001` |
