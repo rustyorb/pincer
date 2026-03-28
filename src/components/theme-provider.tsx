@@ -28,43 +28,25 @@ function getSystemTheme(): "dark" | "light" {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
-  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
-  const [mounted, setMounted] = useState(false);
-
-  // Load saved theme on mount
-  useEffect(() => {
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "dark";
     const saved = localStorage.getItem("redpincer-theme") as Theme | null;
-    if (saved && ["dark", "light", "system"].includes(saved)) {
-      setThemeState(saved);
-    }
-    setMounted(true);
-  }, []);
+    return saved && ["dark", "light", "system"].includes(saved) ? saved : "dark";
+  });
+  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => getSystemTheme());
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   // Resolve theme and apply to <html>
   useEffect(() => {
-    if (!mounted) return;
-
-    const resolved = theme === "system" ? getSystemTheme() : theme;
-    setResolvedTheme(resolved);
-
     const root = document.documentElement;
     root.classList.remove("dark", "light");
-    root.classList.add(resolved);
-  }, [theme, mounted]);
+    root.classList.add(resolvedTheme);
+  }, [resolvedTheme]);
 
   // Listen for system theme changes when in "system" mode
   useEffect(() => {
-    if (theme !== "system") return;
-
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => {
-      const resolved = e.matches ? "dark" : "light";
-      setResolvedTheme(resolved);
-      const root = document.documentElement;
-      root.classList.remove("dark", "light");
-      root.classList.add(resolved);
-    };
+    const handler = (e: MediaQueryListEvent) => setSystemTheme(e.matches ? "dark" : "light");
 
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

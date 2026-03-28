@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/lib/store";
 import {
   DEFAULT_RUBRIC,
@@ -129,15 +129,11 @@ export function ScoringConfig() {
   const { runs, activeRunId } = useStore();
 
   const [rubric, setRubric] = useState<ScoringRubric>({ ...DEFAULT_RUBRIC });
-  const [savedRubrics, setSavedRubrics] = useState<ScoringRubric[]>([]);
+  const [savedRubrics, setSavedRubrics] = useState<ScoringRubric[]>(() => loadSavedRubrics());
   const [rubricName, setRubricName] = useState(DEFAULT_RUBRIC.name);
   const [importText, setImportText] = useState("");
   const [showImport, setShowImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setSavedRubrics(loadSavedRubrics());
-  }, []);
 
   const activeRun = runs.find((r) => r.id === activeRunId);
 

@@ -61,10 +61,12 @@ function RunProgressDisplay({
 }: {
   progress: { total: number; completed: number; startTime: number };
 }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const tick = () => setNow(Date.now());
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, []);
 

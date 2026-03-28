@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { generateId } from "@/lib/uuid";
 import { allPayloads, getPayloadsByCategory } from "@/lib/attacks";
@@ -99,7 +99,15 @@ function matchesSearch(payload: AttackPayload, query: string): boolean {
 export function AttackModules() {
   const { targets, activeTargetId, addRun, addResult, completeRun, isRunning, setIsRunning, setView, setActiveRun } = useStore();
   const [expanded, setExpanded] = useState<Set<AttackCategory>>(new Set());
-  const [customPayloads, setCustomPayloads] = useState<AttackPayload[]>([]);
+  const [customPayloads] = useState<AttackPayload[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem("redpincer-custom-payloads");
+      return stored ? (JSON.parse(stored) as AttackPayload[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [customExpanded, setCustomExpanded] = useState(false);
   const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set());
   const [runningCustom, setRunningCustom] = useState(false);
@@ -164,15 +172,6 @@ export function AttackModules() {
     }
     return payloads;
   }, [customPayloads, searchQuery, severityFilters, modelTargetFilter]);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("redpincer-custom-payloads");
-      if (stored) setCustomPayloads(JSON.parse(stored));
-    } catch {
-      // ignore
-    }
-  }, []);
 
   const toggleCustomSelect = (id: string) => {
     setSelectedCustomIds((prev) => {
