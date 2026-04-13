@@ -8,11 +8,13 @@ export function getTargetKeyFields(target: TargetConfig): {
   apiKeyId?: string;
   apiKey?: string;
 } {
-  if (target.apiKeyId) {
-    return { apiKeyId: target.apiKeyId };
-  }
+  // Prefer plaintext key when present (in-memory only) so requests still work
+  // if the volatile server-side key vault was reset during dev/server restart.
   if (target.apiKey) {
     return { apiKey: target.apiKey };
+  }
+  if (target.apiKeyId) {
+    return { apiKeyId: target.apiKeyId };
   }
   return {};
 }

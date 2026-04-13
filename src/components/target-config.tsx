@@ -202,7 +202,7 @@ export function TargetConfig() {
         endpoint: endpoint.trim(),
         apiKeyId,
         apiKeyLabel,
-        apiKey: apiKeyId ? undefined : apiKey.trim(), // only store plaintext as fallback
+        apiKey: apiKey.trim() || editTarget?.apiKey, // keep plaintext in-memory fallback for volatile vault/dev restarts
         model: model.trim(),
         provider,
         connected: testResult?.success ?? false,
@@ -215,7 +215,7 @@ export function TargetConfig() {
         endpoint: endpoint.trim(),
         apiKeyId,
         apiKeyLabel,
-        apiKey: apiKeyId ? undefined : apiKey.trim(),
+        apiKey: apiKey.trim(),
         model: model.trim(),
         provider,
         connected: testResult?.success ?? false,
@@ -347,7 +347,7 @@ export function TargetConfig() {
       endpoint: rtEndpoint.trim(),
       apiKeyId,
       apiKeyLabel,
-      apiKey: apiKeyId ? undefined : rtApiKey.trim(),
+      apiKey: rtApiKey.trim() || redTeamConfig?.apiKey,
       model: rtModel.trim(),
       provider: rtProvider,
       connected: rtTestResult?.success ?? false,

@@ -20,11 +20,11 @@ describe("getTargetKeyFields", () => {
     expect(getTargetKeyFields(target)).toEqual({ apiKeyId: "kid-123" });
   });
 
-  it("prefers apiKeyId over apiKey", () => {
+  it("prefers apiKey over apiKeyId when both are present", () => {
     const target = makeTarget({ apiKeyId: "kid-123", apiKey: "sk-legacy" });
     const result = getTargetKeyFields(target);
-    expect(result).toEqual({ apiKeyId: "kid-123" });
-    expect(result).not.toHaveProperty("apiKey");
+    expect(result).toEqual({ apiKey: "sk-legacy" });
+    expect(result).not.toHaveProperty("apiKeyId");
   });
 
   it("falls back to apiKey when no apiKeyId", () => {
