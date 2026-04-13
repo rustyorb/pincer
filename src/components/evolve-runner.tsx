@@ -12,6 +12,7 @@ import {
 import { useStore } from "@/lib/store";
 import { getTargetKeyFields } from "@/lib/target-utils";
 import type {
+  EvolveGenerationProgressEvent,
   EvolveGenerationSummaryEvent,
   EvolveLineageExportEvent,
   EvolveMetaEvent,
@@ -53,6 +54,7 @@ export function EvolveRunner() {
   const [mutationMode, setMutationMode] = useState<EvolveMutationMode>("deterministic");
   const [running, setRunning] = useState(false);
   const [meta, setMeta] = useState<EvolveMetaEvent | null>(null);
+  const [progress, setProgress] = useState<EvolveGenerationProgressEvent | null>(null);
   const [summaries, setSummaries] = useState<EvolveGenerationSummaryEvent[]>([]);
   const [lineageExport, setLineageExport] = useState<EvolveLineageExportEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,10 @@ export function EvolveRunner() {
       setMeta(parsed);
       return;
     }
+    if (parsed.type === "generation_progress") {
+      setProgress(parsed);
+      return;
+    }
     if (parsed.type === "generation_summary") {
       setSummaries((current) => upsertSummary(current, parsed));
       return;
@@ -100,6 +106,7 @@ export function EvolveRunner() {
     setRunning(true);
     setError(null);
     setMeta(null);
+    setProgress(null);
     setSummaries([]);
     setLineageExport(null);
 
@@ -318,7 +325,9 @@ export function EvolveRunner() {
             {running && (
               <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Streaming generation summaries...
+                {progress
+                  ? `Generation ${progress.generation + 1}/${progress.totalGenerations} · ${progress.completed}/${progress.total}`
+                  : "Starting evolution stream..."}
               </span>
             )}
 

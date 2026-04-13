@@ -75,10 +75,31 @@ export async function POST(request: NextRequest) {
         const lineageNodes: EvolveLineageNode[] = [];
 
         for (let generation = 0; generation < totalGenerations; generation += 1) {
+          const totalPayloadsForGeneration = population.length;
+          let completedForGeneration = 0;
+
+          writeLine({
+            type: "generation_progress",
+            generation,
+            totalGenerations,
+            completed: completedForGeneration,
+            total: totalPayloadsForGeneration,
+          });
+
           const results = await executePayloads(
             population,
             { endpoint, apiKey, model, provider },
-            concurrency
+            concurrency,
+            () => {
+              completedForGeneration += 1;
+              writeLine({
+                type: "generation_progress",
+                generation,
+                totalGenerations,
+                completed: completedForGeneration,
+                total: totalPayloadsForGeneration,
+              });
+            }
           );
           const scoredPayloads = scoreGeneration(population, results);
           lineageNodes.push(...buildLineageNodes(generation, scoredPayloads));

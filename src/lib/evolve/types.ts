@@ -80,6 +80,14 @@ export interface EvolveGenerationSummaryEvent {
   nextPopulationSize: number | null;
 }
 
+export interface EvolveGenerationProgressEvent {
+  type: "generation_progress";
+  generation: number;
+  totalGenerations: number;
+  completed: number;
+  total: number;
+}
+
 export interface EvolveLineageRecord {
   childId: string;
   childName: string;
@@ -142,5 +150,6 @@ export interface EvolveLineageExportEvent {
 
 export type EvolveStreamEvent =
   | EvolveMetaEvent
+  | EvolveGenerationProgressEvent
   | EvolveGenerationSummaryEvent
   | EvolveLineageExportEvent;
