@@ -66,6 +66,32 @@ export async function POST(request: NextRequest) {
       }
       const data = await res.json();
       models = (data.data as { id: string }[]).map((m) => m.id);
+    } else if (provider === "xai") {
+      const res = await fetch("https://api.x.ai/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return NextResponse.json(
+          { models: [], error: `xAI API error: ${res.status} ${errText}` },
+          { status: 200 }
+        );
+      }
+      const data = await res.json();
+      models = (data.data as { id: string }[]).map((m) => m.id);
+    } else if (provider === "kimi") {
+      const res = await fetch("https://api.moonshot.ai/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return NextResponse.json(
+          { models: [], error: `Kimi API error: ${res.status} ${errText}` },
+          { status: 200 }
+        );
+      }
+      const data = await res.json();
+      models = (data.data as { id: string }[]).map((m) => m.id);
     } else {
       // Custom provider - return empty
       return NextResponse.json({ models: [] });

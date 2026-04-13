@@ -435,6 +435,8 @@ export function TargetConfig() {
                 <SelectItem value="openai">OpenAI</SelectItem>
                 <SelectItem value="anthropic">Anthropic</SelectItem>
                 <SelectItem value="openrouter">OpenRouter</SelectItem>
+                <SelectItem value="xai">xAI</SelectItem>
+                <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -748,6 +750,8 @@ export function TargetConfig() {
                     <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="anthropic">Anthropic</SelectItem>
                     <SelectItem value="openrouter">OpenRouter</SelectItem>
+                    <SelectItem value="xai">xAI</SelectItem>
+                    <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
                     <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>

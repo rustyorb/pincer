@@ -31,7 +31,7 @@ export interface TargetConfig {
   /** Masked display label (e.g., "sk-...abc") — safe to persist client-side. */
   apiKeyLabel?: string;
   model: string;
-  provider: "openai" | "anthropic" | "openrouter" | "custom";
+  provider: "openai" | "anthropic" | "openrouter" | "xai" | "kimi" | "custom";
   connected: boolean;
 }
 
@@ -128,6 +128,14 @@ export const PROVIDER_PRESETS: Record<
   openrouter: {
     endpoint: "https://openrouter.ai/api/v1/chat/completions",
     placeholder: "sk-or-...",
+  },
+  xai: {
+    endpoint: "https://api.x.ai/v1/chat/completions",
+    placeholder: "xai-...",
+  },
+  kimi: {
+    endpoint: "https://api.moonshot.ai/v1/chat/completions",
+    placeholder: "sk-...",
   },
   custom: {
     endpoint: "",
