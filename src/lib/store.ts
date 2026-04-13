@@ -7,7 +7,7 @@ import type {
   AttackResult,
 } from "./types";
 
-export type ViewName = "config" | "attacks" | "results" | "reports" | "chains" | "session" | "editor" | "comparison" | "adaptive" | "heatmap" | "regression" | "scoring";
+export type ViewName = "config" | "attacks" | "results" | "reports" | "chains" | "session" | "editor" | "comparison" | "adaptive" | "evolve" | "heatmap" | "regression" | "scoring";
 
 interface AppState {
   // Targets

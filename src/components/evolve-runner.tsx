@@ -1,0 +1,422 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import {
+  Loader2,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
+import { useStore } from "@/lib/store";
+import { getTargetKeyFields } from "@/lib/target-utils";
+import type {
+  EvolveGenerationSummaryEvent,
+  EvolveMetaEvent,
+  EvolveStreamEvent,
+} from "@/lib/evolve/types";
+import { CATEGORY_LABELS } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function upsertSummary(
+  current: EvolveGenerationSummaryEvent[],
+  incoming: EvolveGenerationSummaryEvent
+): EvolveGenerationSummaryEvent[] {
+  const next = current.filter((summary) => summary.generation !== incoming.generation);
+  next.push(incoming);
+  return next.sort((left, right) => left.generation - right.generation);
+}
+
+export function EvolveRunner() {
+  const { targets, activeTargetId, selectedCategories, concurrency, isRunning } = useStore();
+  const [generations, setGenerations] = useState(3);
+  const [topK, setTopK] = useState(3);
+  const [mutationRate, setMutationRate] = useState(0.5);
+  const [running, setRunning] = useState(false);
+  const [meta, setMeta] = useState<EvolveMetaEvent | null>(null);
+  const [summaries, setSummaries] = useState<EvolveGenerationSummaryEvent[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  const activeTarget = useMemo(
+    () => targets.find((target) => target.id === activeTargetId) ?? null,
+    [activeTargetId, targets]
+  );
+
+  const canRun =
+    !!activeTarget &&
+    selectedCategories.length > 0 &&
+    !running &&
+    !isRunning;
+
+  const stopEvolution = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  };
+
+  const handleStreamLine = (line: string) => {
+    const parsed = JSON.parse(line) as EvolveStreamEvent;
+    if (parsed.type === "meta") {
+      setMeta(parsed);
+      return;
+    }
+    if (parsed.type === "generation_summary") {
+      setSummaries((current) => upsertSummary(current, parsed));
+    }
+  };
+
+  const runEvolution = async () => {
+    if (!activeTarget) {
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setRunning(true);
+    setError(null);
+    setMeta(null);
+    setSummaries([]);
+
+    try {
+      const response = await fetch("/api/evolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: activeTarget.endpoint,
+          ...getTargetKeyFields(activeTarget),
+          model: activeTarget.model,
+          provider: activeTarget.provider,
+          categories: selectedCategories,
+          concurrency,
+          generations,
+          topK,
+          mutationRate,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(
+          payload && typeof payload.error === "string"
+            ? payload.error
+            : "Evolution request failed"
+        );
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("Evolution stream unavailable");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim()) {
+            handleStreamLine(line);
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        handleStreamLine(buffer);
+      }
+    } catch (streamError: unknown) {
+      if (streamError instanceof DOMException && streamError.name === "AbortError") {
+        setError("Evolution run cancelled.");
+      } else {
+        setError(
+          streamError instanceof Error
+            ? streamError.message
+            : "Evolution request failed"
+        );
+      }
+    } finally {
+      setRunning(false);
+      abortRef.current = null;
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6 p-6">
+      <div className="flex items-center gap-3">
+        <Sparkles className="h-6 w-6 text-lobster" />
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Evolution Runner</h2>
+          <p className="text-sm text-muted-foreground">
+            Iterate on the currently selected payload set using deterministic prompt mutations.
+          </p>
+        </div>
+      </div>
+
+      <Card className="border-border bg-card">
+        <CardHeader className="gap-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="h-4 w-4 text-lobster" />
+            Active Target Context
+          </CardTitle>
+          <CardDescription>
+            Evolution uses the active sidebar target, selected attack categories, and shared concurrency setting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {activeTarget ? (
+            <>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Badge variant="outline" className="border-lobster/40 text-lobster">
+                  {activeTarget.name}
+                </Badge>
+                <Badge variant="outline">
+                  {activeTarget.provider} / {activeTarget.model}
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  <Zap className="h-3 w-3" />
+                  Concurrency {concurrency}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedCategories.length > 0 ? (
+                  selectedCategories.map((category) => (
+                    <Badge key={category} variant="secondary">
+                      {CATEGORY_LABELS[category]}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Select at least one attack category in the sidebar.
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Choose an active target in the sidebar before running evolution.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="text-base">Evolution Controls</CardTitle>
+          <CardDescription>
+            Generation 0 runs the resolved payloads as-is. Later generations are bred from the top performers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="space-y-2 text-sm">
+              <span className="font-medium text-foreground">Generations</span>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={generations}
+                onChange={(event) =>
+                  setGenerations(Math.max(1, Math.min(10, Number(event.target.value) || 1)))
+                }
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="font-medium text-foreground">Top K</span>
+              <Input
+                type="number"
+                min={1}
+                value={topK}
+                onChange={(event) =>
+                  setTopK(Math.max(1, Number(event.target.value) || 1))
+                }
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="font-medium text-foreground">Mutation Rate</span>
+              <Input
+                type="number"
+                min={0}
+                max={1}
+                step={0.05}
+                value={mutationRate}
+                onChange={(event) =>
+                  setMutationRate(
+                    Math.max(0, Math.min(1, Number(event.target.value) || 0))
+                  )
+                }
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {running ? (
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={stopEvolution}
+              >
+                Stop Evolution
+              </Button>
+            ) : (
+              <Button
+                className="gap-2 bg-redpincer text-redpincer-foreground hover:bg-redpincer/90"
+                disabled={!canRun}
+                onClick={runEvolution}
+              >
+                <Sparkles className="h-4 w-4" />
+                Run Evolution
+              </Button>
+            )}
+
+            {running && (
+              <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Streaming generation summaries...
+              </span>
+            )}
+
+            {isRunning && !running && (
+              <span className="text-sm text-muted-foreground">
+                Finish the active attack run before starting evolution.
+              </span>
+            )}
+          </div>
+
+          {meta && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              <Badge variant="outline">
+                {meta.initialPayloadCount} payloads
+              </Badge>
+              <Badge variant="outline">
+                {meta.totalGenerations} generations
+              </Badge>
+              <Badge variant="outline">
+                Top {meta.topK}
+              </Badge>
+              <Badge variant="outline">
+                Mutation {meta.mutationRate}
+              </Badge>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-4 w-4 text-lobster" />
+            Generation Summaries
+          </CardTitle>
+          <CardDescription>
+            Each streamed event captures the aggregate fitness of one generation and its leading payloads.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {summaries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No generation summaries yet. Run evolution to populate this panel.
+            </p>
+          ) : (
+            <ScrollArea className="max-h-[520px] pr-4">
+              <div className="space-y-4">
+                {summaries.map((summary) => (
+                  <div
+                    key={summary.generation}
+                    className="rounded-lg border border-border bg-background/50 p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Generation {summary.generation}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {summary.successCount}/{summary.totalPayloads} successful payloads
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline">
+                          Success {formatPercent(summary.successRate)}
+                        </Badge>
+                        <Badge variant="outline">
+                          Avg fitness {summary.avgFitness.toFixed(3)}
+                        </Badge>
+                        <Badge variant="outline">
+                          Severity {summary.avgSeverityNorm.toFixed(3)}
+                        </Badge>
+                        <Badge variant="outline">
+                          Novelty {summary.avgNovelty.toFixed(3)}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      {summary.topPayloads.map((payload) => (
+                        <div
+                          key={payload.payloadId}
+                          className="rounded-md border border-border/70 bg-card px-3 py-2"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-foreground">
+                              {payload.payloadName}
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  payload.success
+                                    ? "border-success/50 text-success"
+                                    : "border-muted-foreground/40 text-muted-foreground"
+                                }
+                              >
+                                {payload.status}
+                              </Badge>
+                              <Badge variant="outline">
+                                Fitness {payload.fitness.toFixed(3)}
+                              </Badge>
+                              <Badge variant="outline">
+                                {payload.classification}
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">
+                            {payload.promptPreview}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

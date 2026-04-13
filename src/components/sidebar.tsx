@@ -18,7 +18,6 @@ import {
   Play,
   Square,
   FileText,
-  Loader2,
   Plus,
   Wifi,
   WifiOff,
@@ -31,6 +30,7 @@ import {
   Grid3X3,
   GitBranch,
   Calculator,
+  Sparkles,
   LogOut,
   Zap,
   Minus,
@@ -451,6 +451,18 @@ export function Sidebar() {
             >
               <Brain className="h-4 w-4" />
               Adaptive
+            </button>
+
+            <button
+              onClick={() => setView("evolve")}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent ${
+                view === "evolve"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground"
+              }`}
+            >
+              <Sparkles className="h-4 w-4" />
+              Evolve
             </button>
 
             <button

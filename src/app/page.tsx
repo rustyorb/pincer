@@ -12,6 +12,7 @@ import { SessionManager } from "@/components/session-manager";
 import { PayloadEditor } from "@/components/payload-editor";
 import { ComparisonDashboard } from "@/components/comparison-dashboard";
 import { AdaptiveRunner } from "@/components/adaptive-runner";
+import { EvolveRunner } from "@/components/evolve-runner";
 import { VulnerabilityHeatmap } from "@/components/vulnerability-heatmap";
 import { RegressionRunner } from "@/components/regression-runner";
 import { ScoringConfig } from "@/components/scoring-config";
@@ -34,6 +35,7 @@ export default function Home() {
         {view === "editor" && <PayloadEditor />}
         {view === "comparison" && <ComparisonDashboard />}
         {view === "adaptive" && <AdaptiveRunner />}
+        {view === "evolve" && <EvolveRunner />}
         {view === "heatmap" && <VulnerabilityHeatmap />}
         {view === "regression" && <RegressionRunner />}
         {view === "scoring" && <ScoringConfig />}

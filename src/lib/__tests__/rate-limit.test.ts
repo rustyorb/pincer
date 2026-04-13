@@ -16,6 +16,7 @@ describe("resolveRateLimitTier", () => {
 
   it("maps attack routes to attack tier", () => {
     expect(resolveRateLimitTier("/api/attack")).toBe("attack");
+    expect(resolveRateLimitTier("/api/evolve")).toBe("attack");
     expect(resolveRateLimitTier("/api/chain")).toBe("attack");
     expect(resolveRateLimitTier("/api/generate-adaptive")).toBe("attack");
   });

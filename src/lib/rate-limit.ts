@@ -39,6 +39,7 @@ export type RateLimitTier = keyof typeof RATE_LIMIT_TIERS;
 const ROUTE_TIER_MAP: Array<[string, RateLimitTier]> = [
   ["/api/auth/", "auth"],
   ["/api/attack", "attack"],
+  ["/api/evolve", "attack"],
   ["/api/chain", "attack"],
   ["/api/generate-adaptive", "attack"],
   ["/api/", "api"],

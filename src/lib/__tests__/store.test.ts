@@ -362,7 +362,7 @@ describe("store", () => {
     });
 
     it("cycles through views", () => {
-      const views = ["config", "attacks", "results", "reports", "chains", "session", "editor", "comparison", "adaptive", "heatmap", "regression", "scoring"] as const;
+      const views = ["config", "attacks", "results", "reports", "chains", "session", "editor", "comparison", "adaptive", "evolve", "heatmap", "regression", "scoring"] as const;
       for (const v of views) {
         useStore.getState().setView(v);
         expect(useStore.getState().view).toBe(v);
