@@ -115,6 +115,7 @@ export interface EvolveLineageExportEvent {
   generatedAt: string;
   lineage: EvolveLineageRecord[];
   nodes: EvolveLineageNode[];
+  finalPopulation: AttackPayload[];
   jsonExport: {
     schemaVersion: string;
     tool: string;

@@ -19,7 +19,7 @@ import type {
   EvolveMutationMode,
   EvolveStreamEvent,
 } from "@/lib/evolve/types";
-import { CATEGORY_LABELS } from "@/lib/types";
+import { CATEGORY_LABELS, type AttackPayload } from "@/lib/types";
 import { downloadFile } from "@/lib/export";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,20 @@ function formatGenerationLabel(generation: number, totalGenerations: number): st
   return `G${generation} (${generation + 1}/${totalGenerations})`;
 }
 
+const CUSTOM_PAYLOADS_STORAGE_KEY = "redpincer-custom-payloads";
+
+function loadCustomPayloadsFromStorage(): AttackPayload[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem(CUSTOM_PAYLOADS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as AttackPayload[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function EvolveRunner() {
   const { targets, activeTargetId, selectedCategories, concurrency, isRunning } = useStore();
   const [generations, setGenerations] = useState(3);
@@ -61,6 +75,7 @@ export function EvolveRunner() {
   const [progress, setProgress] = useState<EvolveGenerationProgressEvent | null>(null);
   const [summaries, setSummaries] = useState<EvolveGenerationSummaryEvent[]>([]);
   const [lineageExport, setLineageExport] = useState<EvolveLineageExportEvent | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -100,6 +115,43 @@ export function EvolveRunner() {
     }
   };
 
+  const saveFinalGenerationToCustomPayloads = () => {
+    if (!lineageExport) {
+      return;
+    }
+
+    const existing = loadCustomPayloadsFromStorage();
+    const existingPrompts = new Set(existing.map((payload) => payload.prompt.trim()));
+    const stamp = Date.now();
+
+    const evolved = lineageExport.finalPopulation
+      .map((payload, index) => {
+        const prompt = payload.prompt.trim();
+        if (!prompt || existingPrompts.has(prompt)) {
+          return null;
+        }
+        existingPrompts.add(prompt);
+        return {
+          ...payload,
+          id: `evolved-${stamp}-${index + 1}`,
+          name: `[Evolved] ${payload.name}`,
+          tags: Array.from(new Set([...(payload.tags ?? []), "evolved", "saved-from-evolve"])),
+        } as AttackPayload;
+      })
+      .filter(Boolean) as AttackPayload[];
+
+    if (evolved.length === 0) {
+      setSaveNotice("No new evolved payloads to save (all duplicates by prompt).");
+      return;
+    }
+
+    localStorage.setItem(
+      CUSTOM_PAYLOADS_STORAGE_KEY,
+      JSON.stringify([...existing, ...evolved])
+    );
+    setSaveNotice(`Saved ${evolved.length} evolved payload${evolved.length === 1 ? "" : "s"} to custom payloads.`);
+  };
+
   const runEvolution = async () => {
     if (!activeTarget) {
       return;
@@ -109,6 +161,7 @@ export function EvolveRunner() {
     abortRef.current = controller;
     setRunning(true);
     setError(null);
+    setSaveNotice(null);
     setMeta(null);
     setProgress(null);
     setSummaries([]);
@@ -396,7 +449,19 @@ export function EvolveRunner() {
                 <Download className="h-4 w-4" />
                 Download Lineage SARIF
               </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={saveFinalGenerationToCustomPayloads}
+              >
+                <Sparkles className="h-4 w-4" />
+                Save Final Generation ({lineageExport.finalPopulation.length})
+              </Button>
             </div>
+          )}
+
+          {saveNotice && (
+            <p className="text-sm text-success">{saveNotice}</p>
           )}
 
           {error && (

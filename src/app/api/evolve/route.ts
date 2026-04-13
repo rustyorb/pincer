@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
           generatedAt,
           lineage: lineageRecords,
           nodes: lineageNodes,
+          finalPopulation: population,
           jsonExport,
           sarifExport,
         });
