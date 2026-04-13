@@ -1,6 +1,23 @@
 import type { LLMRequest, LLMResponse } from "./types";
 
-const TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
+const REASONING_TIMEOUT_MS = 300_000;
+
+const REASONING_MODEL_PATTERN = /(\bo1\b|\bo3\b|reason|thinking|deepseek-r1|deepseek-reasoner|grok-4)/i;
+
+function resolveTimeoutMs(model: string): number {
+  return REASONING_MODEL_PATTERN.test(model) ? REASONING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+}
+
+function isTimeoutLikeError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("aborterror") ||
+    lower.includes("aborted") ||
+    lower.includes("timeout") ||
+    lower.includes("deadline exceeded")
+  );
+}
 
 /**
  * Send a chat completion request to an LLM provider.
@@ -8,23 +25,20 @@ const TIMEOUT_MS = 30_000;
  */
 export async function sendLLMRequest(req: LLMRequest): Promise<LLMResponse> {
   const start = Date.now();
+  const timeoutMs = resolveTimeoutMs(req.model);
 
   try {
     if (req.provider === "anthropic") {
-      return await sendAnthropicRequest(req, start);
+      return await sendAnthropicRequest(req, start, timeoutMs);
     }
-    return await sendOpenAICompatibleRequest(req, start);
+    return await sendOpenAICompatibleRequest(req, start, timeoutMs);
   } catch (err: unknown) {
     const durationMs = Date.now() - start;
     const message =
       err instanceof Error ? err.message : "Unknown error occurred";
 
-    if (
-      message.includes("AbortError") ||
-      message.includes("abort") ||
-      message.includes("timeout")
-    ) {
-      return { content: "", error: `Request timed out after ${TIMEOUT_MS}ms`, durationMs };
+    if (isTimeoutLikeError(message)) {
+      return { content: "", error: `Request timed out after ${timeoutMs}ms`, durationMs };
     }
 
     return { content: "", error: message, durationMs };
@@ -36,10 +50,11 @@ export async function sendLLMRequest(req: LLMRequest): Promise<LLMResponse> {
  */
 async function sendOpenAICompatibleRequest(
   req: LLMRequest,
-  start: number
+  start: number,
+  timeoutMs: number
 ): Promise<LLMResponse> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const headers: Record<string, string> = {
@@ -86,10 +101,11 @@ async function sendOpenAICompatibleRequest(
  */
 async function sendAnthropicRequest(
   req: LLMRequest,
-  start: number
+  start: number,
+  timeoutMs: number
 ): Promise<LLMResponse> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     // Separate system messages from the rest

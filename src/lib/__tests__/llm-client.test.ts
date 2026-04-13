@@ -152,6 +152,21 @@ describe("llm-client", () => {
     });
 
     expect(result.content).toBe("");
-    expect(result.error).toBe("Request timed out after 30000ms");
+    expect(result.error).toBe("Request timed out after 120000ms");
+  });
+
+  it("uses longer timeout windows for reasoning models", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("The operation was aborted"));
+
+    const result = await sendLLMRequest({
+      endpoint: "https://api.example.com/v1/chat/completions",
+      apiKey: "test-key",
+      model: "o3",
+      provider: "openai",
+      messages: [{ role: "user", content: "think" }],
+    });
+
+    expect(result.content).toBe("");
+    expect(result.error).toBe("Request timed out after 300000ms");
   });
 });

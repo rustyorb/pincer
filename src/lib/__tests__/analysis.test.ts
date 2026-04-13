@@ -364,6 +364,12 @@ describe("analyzeResponse", () => {
       expect(result.indicators).toContain("multilingual_response");
     });
   });
+
+  it("classifies timeout/transport text as error", () => {
+    const result = analyze("Request timed out after 120000ms");
+    expect(result.classification).toBe("error");
+    expect(result.indicators).toContain("transport_error_text");
+  });
 });
 
 describe("errorAnalysis", () => {
