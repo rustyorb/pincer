@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { endpoint, model, provider } = body;
     const apiKey = resolveKeyFromBody(body);
 
-    if (!endpoint || !apiKey || !model || !provider) {
+    if (!endpoint || !model || !provider || (provider !== "custom" && !apiKey)) {
       return NextResponse.json(
         { success: false, error: "Missing required fields: endpoint, apiKey, model, provider" },
         { status: 400 }
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const result = await sendLLMRequest({
       endpoint,
-      apiKey,
+      apiKey: apiKey ?? "",
       model,
       provider,
       messages: [

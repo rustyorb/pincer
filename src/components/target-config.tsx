@@ -141,7 +141,11 @@ export function TargetConfig() {
       const hasVaultKey = editTarget?.apiKeyId;
       const keyFields = apiKey.trim()
         ? { apiKey }
-        : hasVaultKey ? { apiKeyId: editTarget.apiKeyId } : { apiKey };
+        : hasVaultKey
+          ? { apiKeyId: editTarget.apiKeyId }
+          : provider === "custom"
+            ? {}
+            : { apiKey };
       const res = await fetch("/api/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -173,7 +177,7 @@ export function TargetConfig() {
 
   const saveTarget = async () => {
     if (!name.trim() || !endpoint.trim() || !model.trim()) return;
-    if (!apiKey.trim() && !hasExistingVaultKey) return;
+    if (provider !== "custom" && !apiKey.trim() && !hasExistingVaultKey) return;
 
     // Store key in server-side vault (only if a new key was entered)
     let apiKeyId: string | undefined;
@@ -250,11 +254,18 @@ export function TargetConfig() {
 
   const editTarget = editingId ? targets.find(t => t.id === editingId) : null;
   const hasExistingVaultKey = !!(editTarget?.apiKeyId);
-  const canSave = name.trim() && endpoint.trim() && (apiKey.trim() || hasExistingVaultKey) && model.trim();
+  const canSave =
+    !!name.trim() &&
+    !!endpoint.trim() &&
+    !!model.trim() &&
+    (provider === "custom" || !!apiKey.trim() || hasExistingVaultKey);
 
   // Red Team helpers
   const rtHasVaultKey = !!(redTeamConfig?.apiKeyId);
-  const rtCanSave = rtEndpoint.trim() && (rtApiKey.trim() || rtHasVaultKey) && rtModel.trim();
+  const rtCanSave =
+    !!rtEndpoint.trim() &&
+    !!rtModel.trim() &&
+    (rtProvider === "custom" || !!rtApiKey.trim() || rtHasVaultKey);
 
   const handleRtProviderChange = (value: string) => {
     const p = value as Provider;
@@ -274,7 +285,11 @@ export function TargetConfig() {
     try {
       const keyFields = rtApiKey.trim()
         ? { apiKey: rtApiKey }
-        : rtHasVaultKey ? { apiKeyId: redTeamConfig!.apiKeyId } : { apiKey: rtApiKey };
+        : rtHasVaultKey
+          ? { apiKeyId: redTeamConfig!.apiKeyId }
+          : rtProvider === "custom"
+            ? {}
+            : { apiKey: rtApiKey };
       const res = await fetch("/api/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -306,7 +321,11 @@ export function TargetConfig() {
     try {
       const keyFields = rtApiKey.trim()
         ? { apiKey: rtApiKey }
-        : rtHasVaultKey ? { apiKeyId: redTeamConfig!.apiKeyId } : { apiKey: rtApiKey };
+        : rtHasVaultKey
+          ? { apiKeyId: redTeamConfig!.apiKeyId }
+          : rtProvider === "custom"
+            ? {}
+            : { apiKey: rtApiKey };
       const res = await fetch("/api/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -568,7 +587,12 @@ export function TargetConfig() {
             <Button
               variant="outline"
               onClick={testConnection}
-              disabled={!endpoint.trim() || !apiKey.trim() || !model.trim() || isTesting}
+              disabled={
+                !endpoint.trim() ||
+                !model.trim() ||
+                (provider !== "custom" && !apiKey.trim() && !hasExistingVaultKey) ||
+                isTesting
+              }
               className="gap-2"
             >
               {isTesting ? (
@@ -862,7 +886,7 @@ export function TargetConfig() {
 
               {/* Test Connection */}
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={testRtConnection} disabled={!rtEndpoint.trim() || (!rtApiKey.trim() && !rtHasVaultKey) || !rtModel.trim() || rtTesting} className="gap-2">
+                <Button variant="outline" onClick={testRtConnection} disabled={!rtEndpoint.trim() || !rtModel.trim() || (rtProvider !== "custom" && !rtApiKey.trim() && !rtHasVaultKey) || rtTesting} className="gap-2">
                   {rtTesting ? (<><Loader2 className="h-4 w-4 animate-spin" />Testing...</>) : (<><Wifi className="h-4 w-4" />Test Connection</>)}
                 </Button>
                 {rtTestResult && (

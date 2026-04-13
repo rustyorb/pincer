@@ -42,12 +42,16 @@ async function sendOpenAICompatibleRequest(
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (req.apiKey.trim()) {
+      headers.Authorization = `Bearer ${req.apiKey}`;
+    }
+
     const response = await fetch(req.endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${req.apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: req.model,
         messages: req.messages,

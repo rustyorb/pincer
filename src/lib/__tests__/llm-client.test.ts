@@ -71,6 +71,29 @@ describe("llm-client", () => {
     expect(result.error).toContain("invalid key");
   });
 
+  it("omits Authorization header for custom provider when apiKey is empty", async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ choices: [{ message: { content: "ok" } }] }),
+        { status: 200 }
+      )
+    );
+
+    await sendLLMRequest({
+      endpoint: "http://localhost:1234/v1/chat/completions",
+      apiKey: "",
+      model: "local-model",
+      provider: "custom",
+      messages: [{ role: "user", content: "ping" }],
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(options.headers).toMatchObject({
+      "Content-Type": "application/json",
+    });
+    expect(options.headers).not.toHaveProperty("Authorization");
+  });
+
   it("formats Anthropic payloads and combines text blocks", async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
