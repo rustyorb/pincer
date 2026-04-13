@@ -30,68 +30,84 @@ export async function POST(request: NextRequest) {
 
     let models: string[] = [];
 
+    const resolveModelsUrl = (rawEndpoint: string | undefined, fallback: string) => {
+      if (!rawEndpoint?.trim()) {
+        return fallback;
+      }
+      const endpoint = rawEndpoint.trim();
+      if (endpoint.endsWith("/models")) {
+        return endpoint;
+      }
+      if (endpoint.includes("/chat/completions")) {
+        return endpoint.replace(/\/chat\/completions$/, "/models");
+      }
+      if (endpoint.includes("/completions")) {
+        return endpoint.replace(/\/completions$/, "/models");
+      }
+      if (endpoint.endsWith("/v1")) {
+        return `${endpoint}/models`;
+      }
+      return fallback;
+    };
+
+    const fetchModelIds = async (modelsUrl: string, providerLabel: string) => {
+      const res = await fetch(modelsUrl, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        return NextResponse.json(
+          { models: [], error: `${providerLabel} API error: ${res.status} ${errText}` },
+          { status: 200 }
+        );
+      }
+      const data = await res.json();
+      return (data.data as { id: string }[]).map((m) => m.id);
+    };
+
     if (provider === "anthropic") {
       models = ANTHROPIC_MODELS;
     } else if (provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        return NextResponse.json(
-          { models: [], error: `OpenAI API error: ${res.status} ${errText}` },
-          { status: 200 }
-        );
-      }
-      const data = await res.json();
-      models = (data.data as { id: string }[])
-        .map((m) => m.id)
-        .filter(
-          (id) =>
-            id.includes("gpt") ||
-            id.startsWith("o1") ||
-            id.startsWith("o3") ||
-            id.startsWith("chatgpt")
-        );
+      const fetched = await fetchModelIds(
+        resolveModelsUrl(endpoint, "https://api.openai.com/v1/models"),
+        "OpenAI"
+      );
+      if (fetched instanceof NextResponse) return fetched;
+      models = fetched.filter(
+        (id) =>
+          id.includes("gpt") ||
+          id.startsWith("o1") ||
+          id.startsWith("o3") ||
+          id.startsWith("chatgpt")
+      );
     } else if (provider === "openrouter") {
-      const res = await fetch("https://openrouter.ai/api/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        return NextResponse.json(
-          { models: [], error: `OpenRouter API error: ${res.status} ${errText}` },
-          { status: 200 }
-        );
-      }
-      const data = await res.json();
-      models = (data.data as { id: string }[]).map((m) => m.id);
+      const fetched = await fetchModelIds(
+        resolveModelsUrl(endpoint, "https://openrouter.ai/api/v1/models"),
+        "OpenRouter"
+      );
+      if (fetched instanceof NextResponse) return fetched;
+      models = fetched;
     } else if (provider === "xai") {
-      const res = await fetch("https://api.x.ai/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        return NextResponse.json(
-          { models: [], error: `xAI API error: ${res.status} ${errText}` },
-          { status: 200 }
-        );
-      }
-      const data = await res.json();
-      models = (data.data as { id: string }[]).map((m) => m.id);
+      const fetched = await fetchModelIds(
+        resolveModelsUrl(endpoint, "https://api.x.ai/v1/models"),
+        "xAI"
+      );
+      if (fetched instanceof NextResponse) return fetched;
+      models = fetched;
     } else if (provider === "kimi") {
-      const res = await fetch("https://api.kimi.com/coding/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        return NextResponse.json(
-          { models: [], error: `Kimi API error: ${res.status} ${errText}` },
-          { status: 200 }
-        );
-      }
-      const data = await res.json();
-      models = (data.data as { id: string }[]).map((m) => m.id);
+      const fetched = await fetchModelIds(
+        resolveModelsUrl(endpoint, "https://api.kimi.com/coding/v1/models"),
+        "Kimi"
+      );
+      if (fetched instanceof NextResponse) return fetched;
+      models = fetched;
+    } else if (provider === "nous") {
+      const fetched = await fetchModelIds(
+        resolveModelsUrl(endpoint, "https://inference-api.nousresearch.com/v1/models"),
+        "Nous"
+      );
+      if (fetched instanceof NextResponse) return fetched;
+      models = fetched;
     } else {
       // Custom provider - return empty
       return NextResponse.json({ models: [] });

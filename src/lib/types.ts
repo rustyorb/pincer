@@ -31,7 +31,7 @@ export interface TargetConfig {
   /** Masked display label (e.g., "sk-...abc") — safe to persist client-side. */
   apiKeyLabel?: string;
   model: string;
-  provider: "openai" | "anthropic" | "openrouter" | "xai" | "kimi" | "custom";
+  provider: "openai" | "anthropic" | "openrouter" | "xai" | "kimi" | "nous" | "custom";
   connected: boolean;
 }
 
@@ -135,6 +135,10 @@ export const PROVIDER_PRESETS: Record<
   },
   kimi: {
     endpoint: "https://api.kimi.com/coding/v1/chat/completions",
+    placeholder: "sk-...",
+  },
+  nous: {
+    endpoint: "https://inference-api.nousresearch.com/v1/chat/completions",
     placeholder: "sk-...",
   },
   custom: {

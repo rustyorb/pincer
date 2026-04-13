@@ -456,6 +456,7 @@ export function TargetConfig() {
                 <SelectItem value="openrouter">OpenRouter</SelectItem>
                 <SelectItem value="xai">xAI</SelectItem>
                 <SelectItem value="kimi">Kimi Code</SelectItem>
+                <SelectItem value="nous">Nous</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -776,6 +777,7 @@ export function TargetConfig() {
                     <SelectItem value="openrouter">OpenRouter</SelectItem>
                     <SelectItem value="xai">xAI</SelectItem>
                     <SelectItem value="kimi">Kimi Code</SelectItem>
+                    <SelectItem value="nous">Nous</SelectItem>
                     <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
