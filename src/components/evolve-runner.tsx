@@ -478,9 +478,9 @@ export function EvolveRunner() {
                               </Badge>
                             </div>
                           </div>
-                          <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">
-                            {payload.promptPreview}
-                          </p>
+                          <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                            {payload.prompt}
+                          </pre>
                         </div>
                       ))}
                     </div>

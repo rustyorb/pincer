@@ -301,7 +301,7 @@ async function mutatePromptWithLLM(
   offspringIndex: number,
   mutationRate: number,
   config: ExecutionConfig
-): Promise<{ prompt: string; technique: string }> {
+): Promise<{ mutatedPrompt: string; technique: string }> {
   const mutationPrompt = `You are an autonomous red-team researcher for authorized testing.
 Create a single evolved payload by combining and mutating two parent payloads.
 
@@ -499,7 +499,7 @@ export function summarizeGeneration(
     topPayloads: scoredPayloads.slice(0, clampTopK(topK, totalPayloads)).map((item) => ({
       payloadId: item.payload.id,
       payloadName: item.payload.name,
-      promptPreview: item.payload.prompt.slice(0, 160),
+      prompt: item.payload.prompt,
       fitness: item.fitness,
       success: item.result.success,
       status: item.result.status,
@@ -518,6 +518,7 @@ export function buildLineageNodes(
   return scoredPayloads.map((item) => ({
     payloadId: item.payload.id,
     payloadName: item.payload.name,
+    prompt: item.payload.prompt,
     generation,
     fitness: item.fitness,
     success: item.result.success,
@@ -603,6 +604,7 @@ export function buildLineageExports(
             },
             properties: {
               payloadId: node.payloadId,
+              payloadPrompt: node.prompt,
               generation: node.generation,
               fitness: node.fitness,
               success: node.success,

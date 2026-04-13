@@ -48,7 +48,7 @@ export interface ScoredPayload {
 export interface EvolveRankedPayloadSummary {
   payloadId: string;
   payloadName: string;
-  promptPreview: string;
+  prompt: string;
   fitness: number;
   success: boolean;
   status: AttackResult["status"];
@@ -102,6 +102,7 @@ export interface EvolveLineageRecord {
 export interface EvolveLineageNode {
   payloadId: string;
   payloadName: string;
+  prompt: string;
   generation: number;
   fitness: number;
   success: boolean;
