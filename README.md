@@ -1,8 +1,6 @@
 <div align="center">
 
-# :lobster: RedPincer
-
-**AI/LLM Red Team Suite**
+<img src="./assets/pincer-header-redblack.svg" alt="RedPincer red and black header" width="100%" />
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
