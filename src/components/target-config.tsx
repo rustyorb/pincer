@@ -65,6 +65,7 @@ export function TargetConfig() {
 
   // Edit mode state
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [forceApiKeyInput, setForceApiKeyInput] = useState(false);
 
   // Red Team LLM form state
   const [rtProvider, setRtProvider] = useState<Provider>(redTeamConfig?.provider || "openai");
@@ -78,6 +79,7 @@ export function TargetConfig() {
   const [rtFetchError, setRtFetchError] = useState<string | null>(null);
   const [rtModelInputMode, setRtModelInputMode] = useState<"select" | "manual">("select");
   const [rtEditing, setRtEditing] = useState(false);
+  const [forceRtApiKeyInput, setForceRtApiKeyInput] = useState(false);
 
   const handleProviderChange = (value: string) => {
     const p = value as Provider;
@@ -165,6 +167,7 @@ export function TargetConfig() {
     setFetchedModels([]);
     setFetchError(null);
     setEditingId(null);
+    setForceApiKeyInput(false);
     setModelInputMode("select");
   };
 
@@ -238,6 +241,7 @@ export function TargetConfig() {
     setFetchedModels([]);
     setFetchError(null);
     setModelInputMode("manual");
+    setForceApiKeyInput(false);
   };
 
   const cancelEdit = () => {
@@ -354,6 +358,7 @@ export function TargetConfig() {
     };
     setRedTeamConfig(config);
     setRtEditing(false);
+    setForceRtApiKeyInput(false);
     setRtApiKey("");
   };
 
@@ -367,6 +372,7 @@ export function TargetConfig() {
       setRtFetchedModels([]);
       setRtFetchError(null);
       setRtModelInputMode("manual");
+      setForceRtApiKeyInput(false);
     }
     setRtEditing(true);
   };
@@ -378,6 +384,7 @@ export function TargetConfig() {
     setRtApiKey("");
     setRtModel("");
     setRtTestResult(null);
+    setForceRtApiKeyInput(false);
     setRtEditing(false);
   };
 
@@ -448,7 +455,7 @@ export function TargetConfig() {
           {/* API Key */}
           <div className="space-y-2">
             <Label htmlFor="api-key">API Key</Label>
-            {editingId && targets.find(t => t.id === editingId)?.apiKeyId && !apiKey.trim() ? (
+            {editingId && targets.find(t => t.id === editingId)?.apiKeyId && !apiKey.trim() && !forceApiKeyInput ? (
               <div className="flex items-center gap-2">
                 <div className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-muted-foreground">
                   🔒 {targets.find(t => t.id === editingId)?.apiKeyLabel || "Stored securely"}
@@ -456,7 +463,10 @@ export function TargetConfig() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setApiKey(" ")} // triggers re-entry mode
+                  onClick={() => {
+                    setForceApiKeyInput(true);
+                    setApiKey("");
+                  }}
                   className="h-9 px-3 text-xs"
                 >
                   Change
@@ -486,7 +496,7 @@ export function TargetConfig() {
                     variant="ghost"
                     size="sm"
                     onClick={fetchModels}
-                    disabled={!apiKey.trim() || isFetchingModels}
+                    disabled={(!apiKey.trim() && !hasExistingVaultKey) || isFetchingModels}
                     className="h-7 gap-1.5 px-2 text-xs"
                   >
                     {isFetchingModels ? (
@@ -758,12 +768,20 @@ export function TargetConfig() {
               {/* API Key */}
               <div className="space-y-2">
                 <Label htmlFor="rt-api-key">API Key</Label>
-                {rtEditing && redTeamConfig?.apiKeyId && !rtApiKey.trim() ? (
+                {rtEditing && redTeamConfig?.apiKeyId && !rtApiKey.trim() && !forceRtApiKeyInput ? (
                   <div className="flex items-center gap-2">
                     <div className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-muted-foreground">
                       🔒 {redTeamConfig.apiKeyLabel || "Stored securely"}
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setRtApiKey(" ")} className="h-9 px-3 text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setForceRtApiKeyInput(true);
+                        setRtApiKey("");
+                      }}
+                      className="h-9 px-3 text-xs"
+                    >
                       Change
                     </Button>
                   </div>
@@ -867,7 +885,14 @@ export function TargetConfig() {
                   {rtEditing ? "Update Red Team LLM" : "Save Red Team LLM"}
                 </Button>
                 {rtEditing && (
-                  <Button variant="outline" onClick={() => setRtEditing(false)} className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setForceRtApiKeyInput(false);
+                      setRtEditing(false);
+                    }}
+                    className="gap-2"
+                  >
                     <X className="h-4 w-4" />
                     Cancel
                   </Button>
