@@ -134,7 +134,7 @@ export const PROVIDER_PRESETS: Record<
     placeholder: "xai-...",
   },
   kimi: {
-    endpoint: "https://api.moonshot.ai/v1/chat/completions",
+    endpoint: "https://api.kimi.com/coding/v1/chat/completions",
     placeholder: "sk-...",
   },
   custom: {

@@ -10,7 +10,7 @@ describe("provider presets", () => {
     });
 
     expect(PROVIDER_PRESETS.kimi).toEqual({
-      endpoint: "https://api.moonshot.ai/v1/chat/completions",
+      endpoint: "https://api.kimi.com/coding/v1/chat/completions",
       placeholder: "sk-...",
     });
   });

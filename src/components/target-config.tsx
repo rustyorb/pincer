@@ -436,7 +436,7 @@ export function TargetConfig() {
                 <SelectItem value="anthropic">Anthropic</SelectItem>
                 <SelectItem value="openrouter">OpenRouter</SelectItem>
                 <SelectItem value="xai">xAI</SelectItem>
-                <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
+                <SelectItem value="kimi">Kimi Code</SelectItem>
                 <SelectItem value="custom">Custom</SelectItem>
               </SelectContent>
             </Select>
@@ -751,7 +751,7 @@ export function TargetConfig() {
                     <SelectItem value="anthropic">Anthropic</SelectItem>
                     <SelectItem value="openrouter">OpenRouter</SelectItem>
                     <SelectItem value="xai">xAI</SelectItem>
-                    <SelectItem value="kimi">Kimi (Moonshot)</SelectItem>
+                    <SelectItem value="kimi">Kimi Code</SelectItem>
                     <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>

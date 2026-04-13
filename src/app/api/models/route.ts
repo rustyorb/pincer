@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       const data = await res.json();
       models = (data.data as { id: string }[]).map((m) => m.id);
     } else if (provider === "kimi") {
-      const res = await fetch("https://api.moonshot.ai/v1/models", {
+      const res = await fetch("https://api.kimi.com/coding/v1/models", {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (!res.ok) {
