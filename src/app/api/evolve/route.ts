@@ -28,8 +28,22 @@ export async function POST(request: NextRequest) {
     const resolvedKey = resolveKeyFromBody(body);
 
     if (!endpoint || !resolvedKey || !model || !provider) {
+      const missing: string[] = [];
+      if (!endpoint) missing.push("endpoint");
+      if (!model) missing.push("model");
+      if (!provider) missing.push("provider");
+      if (!resolvedKey) missing.push("apiKey");
+
+      const keyHint = !resolvedKey && body.apiKeyId
+        ? "Saved API key reference was found, but the key is not loaded in the in-memory vault (likely after restart). Re-enter API key in Target Config."
+        : undefined;
+
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({
+          error: "Missing required fields",
+          missing,
+          hint: keyHint,
+        }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }

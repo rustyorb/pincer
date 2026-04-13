@@ -131,9 +131,13 @@ export function EvolveRunner() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
+        const detail = payload?.missing?.length
+          ? ` (${payload.missing.join(", ")})`
+          : "";
+        const hint = payload?.hint ? ` — ${payload.hint}` : "";
         throw new Error(
           payload && typeof payload.error === "string"
-            ? payload.error
+            ? `${payload.error}${detail}${hint}`
             : "Evolution request failed"
         );
       }
