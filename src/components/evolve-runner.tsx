@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
+  Download,
   Loader2,
   Sparkles,
   Target,
@@ -12,10 +13,13 @@ import { useStore } from "@/lib/store";
 import { getTargetKeyFields } from "@/lib/target-utils";
 import type {
   EvolveGenerationSummaryEvent,
+  EvolveLineageExportEvent,
   EvolveMetaEvent,
+  EvolveMutationMode,
   EvolveStreamEvent,
 } from "@/lib/evolve/types";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { downloadFile } from "@/lib/export";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,9 +50,11 @@ export function EvolveRunner() {
   const [generations, setGenerations] = useState(3);
   const [topK, setTopK] = useState(3);
   const [mutationRate, setMutationRate] = useState(0.5);
+  const [mutationMode, setMutationMode] = useState<EvolveMutationMode>("deterministic");
   const [running, setRunning] = useState(false);
   const [meta, setMeta] = useState<EvolveMetaEvent | null>(null);
   const [summaries, setSummaries] = useState<EvolveGenerationSummaryEvent[]>([]);
+  const [lineageExport, setLineageExport] = useState<EvolveLineageExportEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -77,6 +83,10 @@ export function EvolveRunner() {
     }
     if (parsed.type === "generation_summary") {
       setSummaries((current) => upsertSummary(current, parsed));
+      return;
+    }
+    if (parsed.type === "lineage_export") {
+      setLineageExport(parsed);
     }
   };
 
@@ -91,6 +101,7 @@ export function EvolveRunner() {
     setError(null);
     setMeta(null);
     setSummaries([]);
+    setLineageExport(null);
 
     try {
       const response = await fetch("/api/evolve", {
@@ -106,6 +117,7 @@ export function EvolveRunner() {
           generations,
           topK,
           mutationRate,
+          mutationMode,
         }),
         signal: controller.signal,
       });
@@ -169,7 +181,7 @@ export function EvolveRunner() {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Evolution Runner</h2>
           <p className="text-sm text-muted-foreground">
-            Iterate on the currently selected payload set using deterministic prompt mutations.
+            Autoresearch-style generations for payload evolution with deterministic or LLM crossover modes.
           </p>
         </div>
       </div>
@@ -225,11 +237,11 @@ export function EvolveRunner() {
         <CardHeader>
           <CardTitle className="text-base">Evolution Controls</CardTitle>
           <CardDescription>
-            Generation 0 runs the resolved payloads as-is. Later generations are bred from the top performers.
+            Generation 0 runs selected payloads as-is. Later generations breed top performers with mutation + crossover.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <label className="space-y-2 text-sm">
               <span className="font-medium text-foreground">Generations</span>
               <Input
@@ -267,6 +279,19 @@ export function EvolveRunner() {
                   )
                 }
               />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="font-medium text-foreground">Mutation Mode</span>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={mutationMode}
+                onChange={(event) =>
+                  setMutationMode(event.target.value === "llm" ? "llm" : "deterministic")
+                }
+              >
+                <option value="deterministic">Deterministic</option>
+                <option value="llm">LLM Crossover</option>
+              </select>
             </label>
           </div>
 
@@ -318,6 +343,42 @@ export function EvolveRunner() {
               <Badge variant="outline">
                 Mutation {meta.mutationRate}
               </Badge>
+              <Badge variant="outline">
+                Mode {mutationMode}
+              </Badge>
+            </div>
+          )}
+
+          {lineageExport && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() =>
+                  downloadFile(
+                    JSON.stringify(lineageExport.jsonExport, null, 2),
+                    `redpincer-evolve-lineage-${new Date().toISOString().slice(0, 10)}.json`,
+                    "application/json"
+                  )
+                }
+              >
+                <Download className="h-4 w-4" />
+                Download Lineage JSON
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() =>
+                  downloadFile(
+                    JSON.stringify(lineageExport.sarifExport, null, 2),
+                    `redpincer-evolve-lineage-${new Date().toISOString().slice(0, 10)}.sarif.json`,
+                    "application/sarif+json"
+                  )
+                }
+              >
+                <Download className="h-4 w-4" />
+                Download Lineage SARIF
+              </Button>
             </div>
           )}
 
@@ -334,7 +395,7 @@ export function EvolveRunner() {
             Generation Summaries
           </CardTitle>
           <CardDescription>
-            Each streamed event captures the aggregate fitness of one generation and its leading payloads.
+            Each streamed event captures aggregate fitness and top payloads for a generation.
           </CardDescription>
         </CardHeader>
         <CardContent>

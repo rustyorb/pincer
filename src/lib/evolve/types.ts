@@ -27,10 +27,13 @@ export interface ExecutionConfig {
   provider: TargetConfig["provider"];
 }
 
+export type EvolveMutationMode = "deterministic" | "llm";
+
 export interface EvolveRequestBody extends AttackExecutionRequestBody {
   generations?: number;
   topK?: number;
   mutationRate?: number;
+  mutationMode?: EvolveMutationMode;
 }
 
 export interface ScoredPayload {
@@ -77,4 +80,67 @@ export interface EvolveGenerationSummaryEvent {
   nextPopulationSize: number | null;
 }
 
-export type EvolveStreamEvent = EvolveMetaEvent | EvolveGenerationSummaryEvent;
+export interface EvolveLineageRecord {
+  childId: string;
+  childName: string;
+  generation: number;
+  parentIds: string[];
+  parentNames: string[];
+  mutationMode: EvolveMutationMode;
+  technique: string;
+  fallbackUsed: boolean;
+}
+
+export interface EvolveLineageNode {
+  payloadId: string;
+  payloadName: string;
+  generation: number;
+  fitness: number;
+  success: boolean;
+  classification: AttackResult["analysis"]["classification"];
+  severityNorm: number;
+}
+
+export interface EvolveLineageExportEvent {
+  type: "lineage_export";
+  generatedAt: string;
+  lineage: EvolveLineageRecord[];
+  nodes: EvolveLineageNode[];
+  jsonExport: {
+    schemaVersion: string;
+    tool: string;
+    generatedAt: string;
+    lineage: EvolveLineageRecord[];
+    nodes: EvolveLineageNode[];
+  };
+  sarifExport: {
+    version: string;
+    $schema: string;
+    runs: Array<{
+      tool: {
+        driver: {
+          name: string;
+          version: string;
+          rules: Array<{
+            id: string;
+            name: string;
+            shortDescription: { text: string };
+            fullDescription: { text: string };
+            defaultConfiguration: { level: string };
+          }>;
+        };
+      };
+      results: Array<{
+        ruleId: string;
+        level: string;
+        message: { text: string };
+        properties: Record<string, unknown>;
+      }>;
+    }>;
+  };
+}
+
+export type EvolveStreamEvent =
+  | EvolveMetaEvent
+  | EvolveGenerationSummaryEvent
+  | EvolveLineageExportEvent;

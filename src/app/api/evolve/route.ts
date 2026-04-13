@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { resolveKeyFromBody } from "@/lib/resolve-key";
 import {
-  buildNextGeneration,
+  buildLineageExports,
+  buildLineageNodes,
+  buildNextGenerationAdvanced,
   clampConcurrency,
   clampGenerationCount,
   clampMutationRate,
@@ -11,7 +13,13 @@ import {
   scoreGeneration,
   summarizeGeneration,
 } from "@/lib/evolve/runner";
-import type { EvolveMetaEvent, EvolveRequestBody } from "@/lib/evolve/types";
+import type {
+  EvolveLineageNode,
+  EvolveLineageRecord,
+  EvolveMetaEvent,
+  EvolveMutationMode,
+  EvolveRequestBody,
+} from "@/lib/evolve/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +48,8 @@ export async function POST(request: NextRequest) {
     const totalGenerations = clampGenerationCount(body.generations);
     const mutationRate = clampMutationRate(body.mutationRate);
     const topK = clampTopK(body.topK, initialPayloads.length);
+    const mutationMode: EvolveMutationMode =
+      body.mutationMode === "llm" ? "llm" : "deterministic";
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -61,6 +71,8 @@ export async function POST(request: NextRequest) {
         writeLine(meta);
 
         let population = initialPayloads;
+        const lineageRecords: EvolveLineageRecord[] = [];
+        const lineageNodes: EvolveLineageNode[] = [];
 
         for (let generation = 0; generation < totalGenerations; generation += 1) {
           const results = await executePayloads(
@@ -69,6 +81,8 @@ export async function POST(request: NextRequest) {
             concurrency
           );
           const scoredPayloads = scoreGeneration(population, results);
+          lineageNodes.push(...buildLineageNodes(generation, scoredPayloads));
+
           const nextPopulationSize =
             generation < totalGenerations - 1 ? population.length : null;
 
@@ -82,15 +96,30 @@ export async function POST(request: NextRequest) {
           );
 
           if (generation < totalGenerations - 1) {
-            population = buildNextGeneration(
+            const next = await buildNextGenerationAdvanced(
               scoredPayloads,
               generation,
               population.length,
               topK,
-              mutationRate
+              mutationRate,
+              mutationMode,
+              mutationMode === "llm" ? { endpoint, apiKey, model, provider } : undefined
             );
+            population = next.payloads;
+            lineageRecords.push(...next.lineage);
           }
         }
+
+        const generatedAt = new Date().toISOString();
+        const { jsonExport, sarifExport } = buildLineageExports(lineageRecords, lineageNodes);
+        writeLine({
+          type: "lineage_export",
+          generatedAt,
+          lineage: lineageRecords,
+          nodes: lineageNodes,
+          jsonExport,
+          sarifExport,
+        });
 
         controller.close();
       },
