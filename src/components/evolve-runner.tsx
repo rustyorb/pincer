@@ -46,6 +46,10 @@ function upsertSummary(
   return next.sort((left, right) => left.generation - right.generation);
 }
 
+function formatGenerationLabel(generation: number, totalGenerations: number): string {
+  return `G${generation} (${generation + 1}/${totalGenerations})`;
+}
+
 export function EvolveRunner() {
   const { targets, activeTargetId, selectedCategories, concurrency, isRunning } = useStore();
   const [generations, setGenerations] = useState(3);
@@ -330,7 +334,7 @@ export function EvolveRunner() {
               <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {progress
-                  ? `Generation ${progress.generation + 1}/${progress.totalGenerations} · ${progress.completed}/${progress.total}`
+                  ? `${formatGenerationLabel(progress.generation, progress.totalGenerations)} · ${progress.completed}/${progress.total}`
                   : "Starting evolution stream..."}
               </span>
             )}
@@ -427,7 +431,10 @@ export function EvolveRunner() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">
-                          Generation {summary.generation}
+                          {formatGenerationLabel(
+                            summary.generation,
+                            meta?.totalGenerations ?? (summaries.length || 1)
+                          )}
                         </h3>
                         <p className="text-xs text-muted-foreground">
                           {summary.successCount}/{summary.totalPayloads} successful payloads
